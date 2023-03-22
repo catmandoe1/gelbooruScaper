@@ -59,9 +59,4 @@ def main():
             openSaveMenu()
 
             saveImage(savePath)
-            # time.sleep(1)
-
-            # pressKey("escape")
-            # time.sleep(0.1)
-            # pressKey("escape")
 main()
