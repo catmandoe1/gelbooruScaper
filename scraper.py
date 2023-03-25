@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import math
 import cv2
+import pyperclip as clipboard
 
 SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
 
@@ -151,12 +152,39 @@ def getNumFromUser(message):
             print("invalid number")
 
 def nextPage(page):
+    newUrl = ""
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
-    pressKey("end")
-    keyboard.write(f"&pid={page * 42}")
+    pressKey("ctrl+c")
+    time.sleep(0.1)
+    url = clipboard.paste() # gets url
+
+    #url2 = r"https://gelbooru.com/index.php?page=post&s=list&tags=shiroko_%28blue_archive%29"
+    #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=muoto&pid=42"
+
+    url = url.split("&")
+    print(url)
+    url.pop() # removes the page id
+    print(url)
+
+    for segs in url:
+        if segs == "s=view":
+            newUrl = newUrl + "&" + "s=list"
+        else:
+            newUrl = newUrl + "&" + segs
+
+    newUrl = newUrl[1:]
+    print(newUrl)
+    newUrl = newUrl + f"&pid={page * 42}"
+
+    clipboard.copy(newUrl)
+    
+    #keyboard.write(f"&pid={page * 42}")
+    pressKey("ctrl+v")
+    time.sleep(0.1)
     pressKey("enter")
     time.sleep(2)
+    print("now on page", page + 1)
     
 
 def main():
@@ -202,7 +230,7 @@ def main():
                 if saved >= amount:
                     killSwitch()
 
-                # seeing if page has changed
+                # seeing if page has changed/loaded
                 while True:
                     ss = mss.mss()
                     ss = np.array(ss.grab(pageContentLocation))
@@ -246,6 +274,15 @@ def main():
                 
         nextPage(page + 1) # TODO FIX
 main()
+
+# moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+# click()
+# pressKey("ctrl+c")
+# time.sleep(0.1)
+
+# print(clipboard.paste())
+#clipboard.copy("hello!")
+#print(clipboard.paste())
 
 # img = np.array(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-30.jpg"))
 # img2 = np.array(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-30.jpg"))
