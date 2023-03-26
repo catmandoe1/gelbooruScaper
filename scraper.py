@@ -26,13 +26,6 @@ IMAGES_PER_ROW = 8
 IMAGES_PER_COLUMN = 6
 SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
 
-# imageLocation = {
-#     "top": 343,
-#     "left": 262 + offset,
-#     "width": 1,
-#     "height": 3
-# }
-
 imageLocation = {
     "top": 341,
     "left": 260 + offset,
@@ -100,14 +93,11 @@ def goIntoPic():
     click()
     moveMouse(262 + offset, 343, MOUSEDELAY) # ready to save
     time.sleep(0.4)
-    #moveMouse(10, 10) #moves cursur out of the way - nvm
 
     while True:
         ss = mss.mss()
         area = np.array(ss.grab(imageLocation))
         sum = area.sum()
-        #cv2.imshow("imggg", area)
-        #cv2.waitKey()
         if sum != 394367520 and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
             print("image loaded")
             break
@@ -247,8 +237,6 @@ def main():
                     ss = np.array(ss.grab(pageContentLocation))
                     
                     ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                    #cv2.imshow("ss", ss)
-                    #cv2.imshow("pre", preSnip)
                     cv2.waitKey()
 
                     result = cv2.matchTemplate(ss, preSnip, cv2.TM_CCORR_NORMED)
@@ -285,33 +273,3 @@ def main():
                 
         nextPage(page + 1) # TODO FIX
 main()
-
-# moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-# click()
-# pressKey("ctrl+c")
-# time.sleep(0.1)
-
-# print(clipboard.paste())
-#clipboard.copy("hello!")
-#print(clipboard.paste())
-
-# img = np.array(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-30.jpg"))
-# img2 = np.array(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-30.jpg"))
-
-# print(img.sum(), img2.sum())
-
-# if img.sum() == img2.sum():
-#     print("img = img2")
-# else:
-#     print("img != img2")
-
-# img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-# img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-
-# result = cv2.matchTemplate(img, img2, cv2.TM_CCORR_NORMED)
-# cv2.imshow("igmgg", result)
-# cv2.waitKey()
-
-# min, max, minLoc, maxLoc = cv2.minMaxLoc(result)
-
-# print(min, max, minLoc, maxLoc)
