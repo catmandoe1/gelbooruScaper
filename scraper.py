@@ -10,6 +10,9 @@ import cv2
 import pyperclip as clipboard
 
 SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
+global yOffset
+
+yOffset = 0
 
 if SCREEN == 1:
     offset = 0
@@ -113,8 +116,8 @@ def goIntoPic():
 
 def checkIfPic(y, i):
     location = {
-    "top": 384 + (y % 3) * 206,
-    "left": (337 + i * 195) + offset,
+    "top": pictureY(y),
+    "left": pictureX(i),
     "width": 1,
     "height": 3
     }
@@ -186,8 +189,14 @@ def nextPage(page):
     time.sleep(2)
     print("now on page", page + 1)
     
+def pictureX(rowStage):
+    return (337 + rowStage * 195) + offset
+
+def pictureY(columnStage):
+    return (384 + (columnStage % 3) * 206) - yOffset
 
 def main():
+    global yOffset
 
     preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
     
@@ -216,15 +225,17 @@ def main():
         raise Exception("cant scrape 0 pages")
 
     for page in range(0, pages):
+        yOffset = 0
         for y in range(0, IMAGES_PER_COLUMN):
             if y == 3:
                 time.sleep(1)
                 mouse.wheel(-200)
+                yOffset = 64 # the tag bar isn't there on the bottom part of the page.
                 time.sleep(1)
 
-            for i in range(0, IMAGES_PER_ROW):
+            for x in range(0, IMAGES_PER_ROW):
 
-                if y == 5 and i == 2:
+                if y == 5 and x == 2:
                     break # last picture normally
 
                 if saved >= amount:
@@ -245,20 +256,20 @@ def main():
                     print("max:", max)
 
                     if max < 0.90:
-                        cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-{y}{i}.jpg", ss)
+                        cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-{y}{x}.jpg", ss)
                         print("page loaded")
                         break
 
-                moveMouse((337 + i * 195) + offset, 384 + (y % 3) * 206, MOUSEDELAY) # hover on the pic
-                print(f"current location x:{(337 + i * 195) + offset} y:{384 + (y % 3) * 206}")
+                moveMouse(pictureX(x), pictureY(y), MOUSEDELAY) # hover on the pic
+                print(f"current location x:{pictureX(x)} y:{pictureY(y)}")
                 
-                checkIfPic(y, i)
+                checkIfPic(y, x)
 
                 goIntoPic()
 
                 openSaveMenu()
 
-                if y == 0 and i == 0:
+                if y == 0 and x == 0:
                     saveImage(SAVEPATH, saved, currentName, True)
                 saveImage(SAVEPATH, saved, currentName)
                 saved = saved + 1
@@ -268,7 +279,7 @@ def main():
                 ss = mss.mss()
                 ss = np.array(ss.grab(pageContentLocation))
                 preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-{y}{i}.jpg", ss)
+                cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-{y}{x}.jpg", ss)
                 pressKey("alt+left_arrow")
 
                 
