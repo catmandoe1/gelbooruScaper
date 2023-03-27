@@ -341,6 +341,7 @@ def main():
     for i in range(0, amount):
         progress(saved, amount)
         if i != 0:
+            time.sleep(1) # super simple fix
             waitTillImageSwitched(preSnip)
             waitTillImageLoaded()
 
