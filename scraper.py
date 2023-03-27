@@ -308,7 +308,7 @@ def main():
     global yOffset
     global saved
 
-    preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
+    preSnip = cv2.cvtColor(cv2.imread(f"{os.getcwd()}\\blank.jpg"), cv2.COLOR_BGR2GRAY)
     
 
     print("press \"alt+q\" to stop")
