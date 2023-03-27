@@ -12,8 +12,10 @@ import os
 
 SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
 global yOffset
+global saved
 
 yOffset = 0
+saved = 0
 
 if SCREEN == 1:
     offset = 0
@@ -252,7 +254,8 @@ def waitTillImageSwitched(previousImage):
 
         if repeats == 100:
             print("detected no change in page")
-            checkPageAndCompare()
+            if checkPageAndCompare():
+                return
 
             # cv2.imshow("cur", ss)
             # cv2.imshow("prev", previousImage)
@@ -260,6 +263,10 @@ def waitTillImageSwitched(previousImage):
             # raise TimeoutError("Timed out or hit end")
 
 def checkPageAndCompare():
+    global saved
+
+    savedBoard = clipboard.paste() # keeping last copied thing
+
     print("compairing ids to check if page has updated")
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
@@ -270,13 +277,18 @@ def checkPageAndCompare():
     moveMouse(1920 / 2, 1080/ 2, MOUSEDELAY)
     click()
     pressKey("right_arrow")
-    time.sleep(1.5) # waiting for new url
+    time.sleep(2) # waiting for new url
 
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
     pressKey("ctrl+c")
     time.sleep(0.1)
     url2 = clipboard.paste() # gets url of current page
+
+    moveMouse(1920 / 2, 1080/ 2, MOUSEDELAY)
+    click()
+
+    clipboard.copy(savedBoard)
 
     
     #url = r"https://gelbooru.com/index.php?page=post&s=view&id=8042932&tags=hayasaka_%28a865675167774%29"
@@ -304,12 +316,17 @@ def checkPageAndCompare():
 
     if id1 != id2:
         print("change detected, continuing")
+        #saved = saved - 1
+        pressKey("left_arrow")
+        time.sleep(2)
+        return True
     else:
         raise TimeoutError("Page timed out or reached end")
     
 
 def main():
     global yOffset
+    global saved
 
     #preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank-new.png"), cv2.COLOR_BGR2GRAY)
     preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
@@ -321,7 +338,7 @@ def main():
 
     keyboard.add_hotkey("alt+q", killSwitch)
 
-    saved = 0
+    
     currentName = input("enter name: ")
     amount = getNumFromUser("enter amount of images to scrape (-1 = infinite): ")
 
@@ -338,16 +355,16 @@ def main():
     moveMouse(pictureX(0), pictureY(0), MOUSEDELAY)
     goIntoPic()
 
-    for i in range(0, amount):
+    while saved < amount:
         progress(saved, amount)
-        if i != 0:
+        if saved != 0:
             time.sleep(1) # super simple fix
             waitTillImageSwitched(preSnip)
             waitTillImageLoaded()
 
         openSaveMenu()
 
-        if i == 0:
+        if saved == 0:
             saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName, True)
         else:
             saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName)
@@ -357,7 +374,7 @@ def main():
         ss = np.array(ss.grab(imageLocation))
         preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
 
-        if i != amount - 1:
+        if saved != amount - 1:
             pressKey("right_arrow")
         saved = saved + 1
         clear()
