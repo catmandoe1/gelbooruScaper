@@ -9,27 +9,26 @@ import cv2
 import pyperclip as clipboard
 import os
 
-SCREEN = 2 # 1 OR 2 (assuming 1920x1080 HD)
-global yOffset
 global saved
+global yOffset
 
 yOffset = 0
 saved = 0
 
-if SCREEN == 1:
-    offset = 0
-else:
-    offset = (SCREEN - 1) * 1920
-
-MOUSEDELAY = 0.1
+SCREEN = 2 # 1 OR 2 (assuming 1920x1080)
+MOUSEDELAY = 0.1 # put to zero for no mouse animations
 MAX_IMAGE_WIDTH = 175
 MAX_IMAGE_HEIGHT = 175
 IMAGES_PER_ROW = 8
 IMAGES_PER_COLUMN = 6
 IMAGES_PER_PAGE = 42 # by default on 1920 x 1080
 INVALID_PATH_CHARACTERS = ["\\", "/", ":", "*", "?", "<", ">", "|"]
-#SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
 SAVEPATH = os.getcwd() + r"\saves"
+
+if SCREEN == 1:
+    offset = 0
+else:
+    offset = (SCREEN - 1) * 1920
 
 imageLocation = {
     "top": 341,
@@ -199,42 +198,6 @@ def getAmtPagesFromUser(*message):
             return x
         except:
             print("invalid input")
-
-def nextPage(page):
-    raise DeprecationWarning("not used")
-    newUrl = ""
-    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    click()
-    pressKey("ctrl+c")
-    time.sleep(0.1)
-    url = clipboard.paste() # gets url
-
-    #url2 = r"https://gelbooru.com/index.php?page=post&s=list&tags=shiroko_%28blue_archive%29"
-    #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=muoto&pid=42"
-
-    url = url.split("&")
-    print(url)
-    url.pop() # removes the page id
-    print(url)
-
-    for segs in url:
-        if segs == "s=view":
-            newUrl = newUrl + "&" + "s=list"
-        else:
-            newUrl = newUrl + "&" + segs
-
-    newUrl = newUrl[1:]
-    print(newUrl)
-    newUrl = newUrl + f"&pid={page * 42}"
-
-    clipboard.copy(newUrl)
-    
-    #keyboard.write(f"&pid={page * 42}")
-    pressKey("ctrl+v")
-    time.sleep(0.1)
-    pressKey("enter")
-    time.sleep(2)
-    print("now on page", page + 1)
     
 def pictureX(rowStage):
     return (337 + rowStage * 195) + offset
@@ -245,6 +208,7 @@ def pictureY(columnStage):
 def progress(nSaved, maxSaved):
     s = "PROGRESS"
     e = ""
+    exit = "\"alt + q\" to exit at anytime"
     print(f"{s:=^100}")
     fraction = f"{nSaved} / {maxSaved}"
     precent = f"{round((nSaved / maxSaved) * 100)}%"
@@ -252,6 +216,7 @@ def progress(nSaved, maxSaved):
     print(f"{fraction: ^100}")
     print(f"{precent: ^100}")
     print(f"{savepath: ^100}")
+    print(f"{exit: ^100}")
     print(f"{e:=^100}")
 
 
@@ -268,9 +233,6 @@ def waitTillImageSwitched(previousImage):
             print(maxV)
 
         if maxV < 0.99:
-            # cv2.imshow("prev", previousImage)
-            # cv2.imshow("curr", ss)
-            # cv2.waitKey()
             print("loaded next image")
             return
         
@@ -280,11 +242,6 @@ def waitTillImageSwitched(previousImage):
             print("detected no change in page")
             if checkPageAndCompare():
                 return
-
-            # cv2.imshow("cur", ss)
-            # cv2.imshow("prev", previousImage)
-            # cv2.waitKey()
-            # raise TimeoutError("Timed out or hit end")
 
 def checkPageAndCompare():
     global saved
@@ -340,7 +297,6 @@ def checkPageAndCompare():
 
     if id1 != id2:
         print("change detected, continuing")
-        #saved = saved - 1
         pressKey("left_arrow")
         time.sleep(2)
         return True
@@ -352,11 +308,9 @@ def main():
     global yOffset
     global saved
 
-    #preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank-new.png"), cv2.COLOR_BGR2GRAY)
     preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
     
 
-    #print("MAKE SURE URL DOESNT HAVE &pid=[x] IN IT")
     print("press \"alt+q\" to stop")
     print("choosen screen =", SCREEN)
 
@@ -407,6 +361,10 @@ def main():
     print("finished")
 
 print("save path =", SAVEPATH)
+print("\"alt + q\" to exit at anytime")
 main()
+
+print("Press enter to close...")
+input()
 
 # new branch!!!
