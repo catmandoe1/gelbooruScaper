@@ -8,6 +8,7 @@ import sys
 import math
 import cv2
 import pyperclip as clipboard
+import os
 
 SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
 global yOffset
@@ -24,7 +25,8 @@ MAX_IMAGE_WIDTH = 175
 MAX_IMAGE_HEIGHT = 175
 IMAGES_PER_ROW = 8
 IMAGES_PER_COLUMN = 6
-SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
+#SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
+SAVEPATH = os.getcwd() + r"\saves"
 
 imageLocation = {
     "top": 341,
@@ -42,12 +44,17 @@ pageContentLocation = {
 
 def killSwitch():
     sys.exit("Stopped by user or Finished")
+
+def clear():
+    os.system("cls")
       
 def click(type = "left"):
-    print("clicked")
+    #print("clicked")
     if type == "left":
         mouse.click(type)
     elif type == "right":
+        mouse.click(type)
+    elif type == "middle":
         mouse.click(type)
     else:
         raise ValueError(f"{type} is not a valid click")
@@ -60,6 +67,17 @@ def pressKey(key):
         keyboard.send(key)
     except:
         raise ValueError(f"{key} is not a valid key")
+    
+def checkIfnotCreateDir(path, name):
+    newName = name.replace(" ", "-")
+    newName = newName.replace("_", "-")
+    fullPath = path + "\\" + newName
+
+    if not os.path.exists(fullPath):
+        os.mkdir(fullPath)
+    
+    return fullPath
+
     
 def saveImage(savePath, nSaved, name, first = False):
     if first:
@@ -102,7 +120,21 @@ def goIntoPic():
             print("image loaded")
             break
     
-    
+def waitTillImageLoaded():
+    ss = mss.mss()
+    pre = np.array(ss.grab(imageLocation))
+    preSum = pre.sum()
+
+    moveMouse(262 + offset, 343, MOUSEDELAY) # ready to save
+
+    while True:
+        ss = mss.mss()
+        area = np.array(ss.grab(imageLocation))
+        sum = area.sum()
+        if sum != 394367520: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
+            print("image loaded")
+            break
+
 
 def checkIfPic(y, i):
     location = {
@@ -145,6 +177,7 @@ def getNumFromUser(message):
             print("invalid number")
 
 def nextPage(page):
+    raise DeprecationWarning("not used")
     newUrl = ""
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
@@ -185,13 +218,104 @@ def pictureX(rowStage):
 def pictureY(columnStage):
     return (384 + (columnStage % 3) * 206) - yOffset
 
+def progress(nSaved, maxSaved):
+    s = "PROGRESS"
+    e = ""
+    print(f"{s:=^30}")
+    fraction = f"{nSaved} / {maxSaved}"
+    precent = f"{round((nSaved / maxSaved) * 100)}%"
+    print(f"{fraction: ^30}")
+    print(f"{precent: ^30}")
+    print(f"{e:=^30}")
+
+
+def waitTillImageSwitched(previousImage):
+    repeats = 0
+    while True:
+        ss = mss.mss()
+        ss = np.array(ss.grab(imageLocation))
+        ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
+        
+        result = cv2.matchTemplate(ss, previousImage, cv2.TM_CCOEFF_NORMED)
+        _, maxV, _, _ = cv2.minMaxLoc(result)
+        if repeats % 10 == 0:
+            print(maxV)
+
+        if maxV < 0.99:
+            # cv2.imshow("prev", previousImage)
+            # cv2.imshow("curr", ss)
+            # cv2.waitKey()
+            print("loaded next image")
+            return
+        
+        repeats = repeats + 1
+
+        if repeats == 100:
+            print("detected no change in page")
+            checkPageAndCompare()
+
+            # cv2.imshow("cur", ss)
+            # cv2.imshow("prev", previousImage)
+            # cv2.waitKey()
+            # raise TimeoutError("Timed out or hit end")
+
+def checkPageAndCompare():
+    print("compairing ids to check if page has updated")
+    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    click()
+    pressKey("ctrl+c")
+    time.sleep(0.1)
+    url = clipboard.paste() # gets url of current page
+
+    moveMouse(1920 / 2, 1080/ 2, MOUSEDELAY)
+    click()
+    pressKey("right_arrow")
+    time.sleep(1.5) # waiting for new url
+
+    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    click()
+    pressKey("ctrl+c")
+    time.sleep(0.1)
+    url2 = clipboard.paste() # gets url of current page
+
+    
+    #url = r"https://gelbooru.com/index.php?page=post&s=view&id=8042932&tags=hayasaka_%28a865675167774%29"
+    #url2 = r"https://gelbooru.com/index.php?page=post&s=view&id=8042931&tags=hayasaka_%28a865675167774%29"
+
+    print(url)
+    print(url2)
+
+    url = url.split("&")
+    url2 = url2.split("&")
+
+    id1 = ""
+    id2 = ""
+
+    for tag in url:
+        if tag[:3] == "id=":
+            print("id 1:", tag[3:])
+            id1 = tag[3:]
+            break
+    for tag in url2:
+        if tag[:3] == "id=":
+            print("id 2:", tag[3:])
+            id2 = tag[3:]
+            break
+
+    if id1 != id2:
+        print("change detected, continuing")
+    else:
+        raise TimeoutError("Page timed out or reached end")
+    
+
 def main():
     global yOffset
 
+    #preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank-new.png"), cv2.COLOR_BGR2GRAY)
     preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
     
 
-    print("MAKE SURE URL DOESNT HAVE &pid=[x] IN IT")
+    #print("MAKE SURE URL DOESNT HAVE &pid=[x] IN IT")
     print("press \"alt+q\" to stop")
     print("choosen screen =", SCREEN)
 
@@ -201,77 +325,46 @@ def main():
     currentName = input("enter name: ")
     amount = getNumFromUser("enter amount of images to scrape (-1 = infinite): ")
 
-    if amount >= 0:
-        pages = math.ceil(amount / (IMAGES_PER_ROW * IMAGES_PER_COLUMN))
-    else:
-        pages = sys.maxsize * 2 + 1 # big number !!!
+    if amount == -1:
+        amount = sys.maxsize * 2 + 1 # big number !!!
+    elif amount == 0:
+        raise ValueError("cant scrape 0 images")
 
     moveMouse(1920 / 2, 1080 / 2, MOUSEDELAY)
     mouse.wheel(800)
     addMinusVideoTag()
-    
 
-    if pages == 0:
-        raise Exception("cant scrape 0 pages")
+    # initial image select
+    moveMouse(pictureX(0), pictureY(0), MOUSEDELAY)
+    goIntoPic()
 
-    for page in range(0, pages):
-        yOffset = 0
-        for y in range(0, IMAGES_PER_COLUMN):
-            if y == 3:
-                time.sleep(1)
-                mouse.wheel(-200)
-                yOffset = 64 # the tag bar isn't there on the bottom part of the page.
-                time.sleep(1)
+    for i in range(0, amount):
+        progress(saved, amount)
+        if i != 0:
+            waitTillImageSwitched(preSnip)
+            waitTillImageLoaded()
 
-            for x in range(0, IMAGES_PER_ROW):
+        openSaveMenu()
 
-                if y == 5 and x == 2:
-                    break # last picture normally
+        if i == 0:
+            saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName, True)
+        else:
+            saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName)
 
-                if saved >= amount:
-                    killSwitch()
+        time.sleep(0.4)
+        ss = mss.mss()
+        ss = np.array(ss.grab(imageLocation))
+        preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
 
-                # seeing if page has changed/loaded
-                while True:
-                    ss = mss.mss()
-                    ss = np.array(ss.grab(pageContentLocation))
-                    
-                    ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                    cv2.waitKey()
+        if i != amount - 1:
+            pressKey("right_arrow")
+        saved = saved + 1
+        clear()
 
-                    result = cv2.matchTemplate(ss, preSnip, cv2.TM_CCORR_NORMED)
-                    _, max, _, _ = cv2.minMaxLoc(result)
-                    print("max:", max)
+    print("finished")
 
-                    if max < 0.90:
-                        cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-{y}{x}.jpg", ss)
-                        print("page loaded")
-                        break
 
-                moveMouse(pictureX(x), pictureY(y), MOUSEDELAY) # hover on the pic
-                print(f"current location x:{pictureX(x)} y:{pictureY(y)}")
-                
-                checkIfPic(y, x)
-
-                goIntoPic()
-
-                openSaveMenu()
-
-                if y == 0 and x == 0:
-                    saveImage(SAVEPATH, saved, currentName, True)
-                saveImage(SAVEPATH, saved, currentName)
-                saved = saved + 1
-                
-                time.sleep(0.5) # allows for the save window to close in time
-                # used for checking if page as changed
-                ss = mss.mss()
-                ss = np.array(ss.grab(pageContentLocation))
-                preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-{y}{x}.jpg", ss)
-                pressKey("alt+left_arrow")
-
-                
-        nextPage(page + 1) # TODO FIX
+print("save path =", SAVEPATH)
 main()
 
 # new branch!!!
