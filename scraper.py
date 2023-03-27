@@ -5,12 +5,11 @@ import mss
 import mss.tools
 import numpy as np
 import sys
-import math
 import cv2
 import pyperclip as clipboard
 import os
 
-SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
+SCREEN = 2 # 1 OR 2 (assuming 1920x1080 HD)
 global yOffset
 global saved
 
@@ -20,13 +19,15 @@ saved = 0
 if SCREEN == 1:
     offset = 0
 else:
-    offset = SCREEN * 1920
+    offset = (SCREEN - 1) * 1920
 
 MOUSEDELAY = 0.1
 MAX_IMAGE_WIDTH = 175
 MAX_IMAGE_HEIGHT = 175
 IMAGES_PER_ROW = 8
 IMAGES_PER_COLUMN = 6
+IMAGES_PER_PAGE = 42 # by default on 1920 x 1080
+INVALID_PATH_CHARACTERS = ["\\", "/", ":", "*", "?", "<", ">", "|"]
 #SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
 SAVEPATH = os.getcwd() + r"\saves"
 
@@ -70,9 +71,22 @@ def pressKey(key):
     except:
         raise ValueError(f"{key} is not a valid key")
     
+def isValidName(name):
+    if(not(name and name.strip())):
+        raise ValueError("Name can't be empty")
+
+    for char in name:
+        if char in INVALID_PATH_CHARACTERS:
+            raise ValueError("Invalid name")
+    
+    return True
+    
 def checkIfnotCreateDir(path, name):
     newName = name.replace(" ", "-")
     newName = newName.replace("_", "-")
+
+    
+
     fullPath = path + "\\" + newName
 
     if not os.path.exists(fullPath):
@@ -170,13 +184,21 @@ def addMinusVideoTag():
     time.sleep(3)
     print("starting...")
 
-def getNumFromUser(message):
+def getAmtPagesFromUser(*message):
     while True:
         try:
-            x = int(input(message))
+            for text in message:
+                print(text)
+            x = input()
+
+            if x[:1] == "p":
+                pages = int(x[1:]) * IMAGES_PER_PAGE
+                return pages
+
+            x = int(x)
             return x
         except:
-            print("invalid number")
+            print("invalid input")
 
 def nextPage(page):
     raise DeprecationWarning("not used")
@@ -223,12 +245,14 @@ def pictureY(columnStage):
 def progress(nSaved, maxSaved):
     s = "PROGRESS"
     e = ""
-    print(f"{s:=^30}")
+    print(f"{s:=^100}")
     fraction = f"{nSaved} / {maxSaved}"
     precent = f"{round((nSaved / maxSaved) * 100)}%"
-    print(f"{fraction: ^30}")
-    print(f"{precent: ^30}")
-    print(f"{e:=^30}")
+    savepath = f"Save path: {SAVEPATH}"
+    print(f"{fraction: ^100}")
+    print(f"{precent: ^100}")
+    print(f"{savepath: ^100}")
+    print(f"{e:=^100}")
 
 
 def waitTillImageSwitched(previousImage):
@@ -274,7 +298,7 @@ def checkPageAndCompare():
     time.sleep(0.1)
     url = clipboard.paste() # gets url of current page
 
-    moveMouse(1920 / 2, 1080/ 2, MOUSEDELAY)
+    moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     click()
     pressKey("right_arrow")
     time.sleep(2) # waiting for new url
@@ -285,7 +309,7 @@ def checkPageAndCompare():
     time.sleep(0.1)
     url2 = clipboard.paste() # gets url of current page
 
-    moveMouse(1920 / 2, 1080/ 2, MOUSEDELAY)
+    moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     click()
 
     clipboard.copy(savedBoard)
@@ -340,14 +364,15 @@ def main():
 
     
     currentName = input("enter name: ")
-    amount = getNumFromUser("enter amount of images to scrape (-1 = infinite): ")
+    isValidName(currentName)
+    amount = getAmtPagesFromUser("enter amount of images to scrape,", "-1 = infinite", f"use a surfix of p to count in pages (p2 = {IMAGES_PER_PAGE * 2} images)")
 
     if amount == -1:
         amount = sys.maxsize * 2 + 1 # big number !!!
     elif amount == 0:
         raise ValueError("cant scrape 0 images")
 
-    moveMouse(1920 / 2, 1080 / 2, MOUSEDELAY)
+    moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     mouse.wheel(800)
     addMinusVideoTag()
 
@@ -380,7 +405,6 @@ def main():
         clear()
 
     print("finished")
-
 
 print("save path =", SAVEPATH)
 main()
