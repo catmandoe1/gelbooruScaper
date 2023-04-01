@@ -8,6 +8,7 @@ import sys
 import cv2
 import pyperclip as clipboard
 import os
+import json
 
 global saved
 global yOffset
@@ -15,14 +16,34 @@ global yOffset
 yOffset = 0
 saved = 0
 
-SCREEN = 2 # 1 OR 2 (assuming 1920x1080)
-MOUSEDELAY = 0.1 # put to zero for no mouse animations
-MAX_IMAGE_WIDTH = 175
-MAX_IMAGE_HEIGHT = 175
-IMAGES_PER_ROW = 8
-IMAGES_PER_COLUMN = 6
-IMAGES_PER_PAGE = 42 # by default on 1920 x 1080
-INVALID_PATH_CHARACTERS = ["\\", "/", ":", "*", "?", "<", ">", "|"]
+if not os.path.exists(os.getcwd() + r"\settings.json"):
+    # defaults dont touch
+    DATA = {
+        "screen": 1,
+        "shutdown_on_completion": False,
+        "mouse_delay": 0.1,
+        "max_image_width": 175,
+        "max_image_height": 175,
+        "images_per_row": 8,
+        "images_per_column": 6,
+        "images_per_page": 42,
+        "invalid_path_characters": ["\\", "/", ":", "*", "?", "<", ">", "|"]
+    }
+
+    json.dump(DATA, open("settings.json", "w"), indent=4)
+    
+else:
+    DATA = json.load(open("settings.json", "r"))
+
+SCREEN = DATA["screen"] # 1 OR 2 (assuming 1920x1080)
+MOUSEDELAY = DATA["mouse_delay"] # put to zero for no mouse animations
+MAX_IMAGE_WIDTH = DATA["max_image_width"]
+MAX_IMAGE_HEIGHT = DATA["max_image_height"]
+IMAGES_PER_ROW = DATA["images_per_row"]
+IMAGES_PER_COLUMN = DATA["images_per_column"]
+IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
+INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
+SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
 SAVEPATH = os.getcwd() + r"\saves"
 
 if SCREEN == 1:
@@ -44,8 +65,18 @@ pageContentLocation = {
     "height": 753
 }
 
+def shutdown():
+    os.system("shutdown /s /t 1")
+
 def killSwitch():
+    if SHUTDOWN_ON_COMPLETION:
+        shutdown()
     sys.exit("Stopped by user or Finished")
+
+def pauseAndWait():
+    print("paused at image", saved)
+    input("press enter to continue...")
+    startingIn(5)
 
 def clear():
     os.system("cls")
@@ -198,6 +229,18 @@ def getAmtPagesFromUser(*message):
             return x
         except:
             print("invalid input")
+
+def getNumFromUser(*message):
+    while True:
+        try:
+            for text in message:
+                print(text)
+            x = input()
+
+            x = int(x)
+            return x
+        except:
+            print("invalid number")
     
 def pictureX(rowStage):
     return (337 + rowStage * 195) + offset
@@ -303,18 +346,70 @@ def checkPageAndCompare():
     else:
         raise TimeoutError("Page timed out or reached end")
     
+def startingIn(sec):
+    for i in range(sec, 0, -1):
+        print(f"Starting in {i}")
+        time.sleep(1)
 
+# this is more continue from this picture rather than page
+def goToPage(currentImageNum):
+    if currentImageNum < 1:
+        print("program already starts from here")
+        return
+    #page = currentImageNum / IMAGES_PER_PAGE
+    #page = currentImageNum
+    #imgOnPage = currentImageNum - page * IMAGES_PER_PAGE
+
+    prevClipBoard = clipboard.paste() # saving previous so its not lost
+    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    click()
+    pressKey("ctrl+c")
+    time.sleep(0.1)
+    url = clipboard.paste() # gets url of current page
+    #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=cygnet_%28azur_lane%29+-video"
+
+    url = url.split("&")
+    print(url)
+    isPid = False
+
+    for part in url:
+        print(part[:4])
+
+        if part[:4] == "pid=":
+            isPid = True
+
+    if not isPid:
+        pressKey("end")
+        keyboard.write(f"&pid={currentImageNum}")
+    else:
+        newUrl = ""
+
+        for part in url:
+            if part[:4] == "pid=":
+                newUrl = newUrl + f"&pid={currentImageNum}"
+            else:
+                newUrl = newUrl + "&" + part
+
+        newUrl = newUrl[1:] # strips off the first & -> cant be bothered fixing it
+        keyboard.write(newUrl)
+
+    pressKey("enter")
+    clipboard.copy(prevClipBoard) # setting back clipboard
+    time.sleep(2)
+    
 def main():
     global yOffset
     global saved
 
     preSnip = cv2.cvtColor(cv2.imread(f"{os.getcwd()}\\blank.jpg"), cv2.COLOR_BGR2GRAY)
     
-
+    print("use the settings.json to edit perferences")
     print("press \"alt+q\" to stop")
+    print("press \"alt+p\" to pause")
     print("choosen screen =", SCREEN)
 
     keyboard.add_hotkey("alt+q", killSwitch)
+    keyboard.add_hotkey("alt+p", pauseAndWait)
 
     
     currentName = input("enter name: ")
@@ -325,10 +420,18 @@ def main():
         amount = sys.maxsize * 2 + 1 # big number !!!
     elif amount == 0:
         raise ValueError("cant scrape 0 images")
-
+    
+    pickUp = 0
+    if input("start from a choosen image index? [y/n]: ") == "y":
+        pickUp = getNumFromUser("index of image:") - 1
+    else:
+        print("starting from the beginning")
+    startingIn(10)
+    addMinusVideoTag()
+    time.sleep(2)
+    goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     mouse.wheel(800)
-    addMinusVideoTag()
 
     # initial image select
     moveMouse(pictureX(0), pictureY(0), MOUSEDELAY)
@@ -364,6 +467,8 @@ print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
 main()
 
+if SHUTDOWN_ON_COMPLETION:
+    shutdown()
 print("Press enter to close...")
 input()
 
