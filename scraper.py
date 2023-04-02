@@ -13,6 +13,12 @@ import json
 global saved
 global yOffset
 
+"""
+    used to avoid those annoying unclosable banners.
+    the standard notice of 02/04/2023 (UK date) offset would be 36 (pixels)
+    this is overriden by settings.json, edit that instead
+
+"""
 yOffset = 0
 saved = 0
 
@@ -21,6 +27,7 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
     DATA = {
         "screen": 1,
         "shutdown_on_completion": False,
+        "y_offset": 0,
         "mouse_delay": 0.1,
         "max_image_width": 175,
         "max_image_height": 175,
@@ -45,6 +52,7 @@ IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
 INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
 SAVEPATH = os.getcwd() + r"\saves"
+yOffset = DATA["y_offset"]
 
 if SCREEN == 1:
     offset = 0
@@ -52,21 +60,26 @@ else:
     offset = (SCREEN - 1) * 1920
 
 imageLocation = {
-    "top": 341,
+    "top": 341 + yOffset,
     "left": 260 + offset,
     "width": 1640,
-    "height": 691
+    "height": 691 - yOffset
 }
 
 pageContentLocation = {
-    "top": 272,
+    "top": 272 + yOffset,
     "left": 240 + offset,
     "width": 1661,
-    "height": 753
+    "height": 753 - yOffset
 }
+
+# the number is equal to the sum of defualt background, when the image loads it changes
+# sum is height of image * width of image * the sum of a pixel (default background rgba = 31, 31, 31, 255)
+SUM_OF_IMAGE_BACKGROUND = (imageLocation["height"] * imageLocation["width"]) * (31 + 31 + 31 + 255)
 
 def shutdown():
     os.system("shutdown /s /t 1")
+    #print("shutdown!!!")
 
 def killSwitch():
     if SHUTDOWN_ON_COMPLETION:
@@ -111,17 +124,15 @@ def isValidName(name):
     
     return True
     
-def checkIfnotCreateDir(path, name):
+def getSaveImagePath(path, name):
     newName = name.replace(" ", "-")
     newName = newName.replace("_", "-")
-
-    
 
     fullPath = path + "\\" + newName
 
     if not os.path.exists(fullPath):
         os.mkdir(fullPath)
-    
+
     return fullPath
 
     
@@ -155,14 +166,16 @@ def goIntoPic():
     preSum = pre.sum()
 
     click()
-    moveMouse(262 + offset, 343, MOUSEDELAY) # ready to save
+    moveMouse(262 + offset, 343 + yOffset, MOUSEDELAY) # ready to save
     time.sleep(0.4)
 
     while True:
         ss = mss.mss()
         area = np.array(ss.grab(imageLocation))
         sum = area.sum()
-        if sum != 394367520 and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
+        #394367520
+
+        if sum != SUM_OF_IMAGE_BACKGROUND and sum != preSum: 
             print("image loaded")
             break
     
@@ -171,13 +184,13 @@ def waitTillImageLoaded():
     pre = np.array(ss.grab(imageLocation))
     preSum = pre.sum()
 
-    moveMouse(262 + offset, 343, MOUSEDELAY) # ready to save
+    moveMouse(262 + offset, 343 + yOffset, MOUSEDELAY) # ready to save
 
     while True:
         ss = mss.mss()
         area = np.array(ss.grab(imageLocation))
         sum = area.sum()
-        if sum != 394367520: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
+        if sum != SUM_OF_IMAGE_BACKGROUND: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
             print("image loaded")
             break
 
@@ -196,7 +209,7 @@ def checkIfPic(y, i):
             raise TimeoutError("timed out or reached end")
         ss = mss.mss()
         area = np.array(ss.grab(location))
-        if area.sum() != 1044:
+        if area.sum() != 1044: # like SUM_OF_IMAGE_BACKGROUND
             break
         
         timeout = timeout + 1
@@ -204,7 +217,7 @@ def checkIfPic(y, i):
 
 def addMinusVideoTag():
     print("adding \"-video\" tag...")
-    moveMouse(210 + offset, 240, MOUSEDELAY) # tag bar
+    moveMouse(210 + offset, 240 + yOffset, MOUSEDELAY) # tag bar
     click()
     pressKey("end")
     pressKey("space")
@@ -246,7 +259,7 @@ def pictureX(rowStage):
     return (337 + rowStage * 195) + offset
 
 def pictureY(columnStage):
-    return (384 + (columnStage % 3) * 206) - yOffset
+    return (384 + (columnStage % 3) * 206) + yOffset
 
 def progress(nSaved, maxSaved):
     s = "PROGRESS"
@@ -256,9 +269,12 @@ def progress(nSaved, maxSaved):
     fraction = f"{nSaved} / {maxSaved}"
     precent = f"{round((nSaved / maxSaved) * 100)}%"
     savepath = f"Save path: {SAVEPATH}"
+    shutDown = "SHUTDOWN ON COMPLETION IS ENABLED"
     print(f"{fraction: ^100}")
     print(f"{precent: ^100}")
     print(f"{savepath: ^100}")
+    if SHUTDOWN_ON_COMPLETION:
+        print(f"{shutDown: ^100}")
     print(f"{exit: ^100}")
     print(f"{e:=^100}")
 
@@ -396,6 +412,42 @@ def goToPage(currentImageNum):
     pressKey("enter")
     clipboard.copy(prevClipBoard) # setting back clipboard
     time.sleep(2)
+
+def getStartingIndex(path, name):
+    startingIndex = 0
+    #possible extensions:
+    #.gif
+    #.jpg
+    #.jpeg
+    #.png
+    #.webm
+    newName = name.replace(" ", "-")
+    newName = newName.replace("_", "-")
+
+    fullPath = path + "\\" + newName
+
+    if not os.path.exists(fullPath):
+        os.mkdir(fullPath)
+
+    files = os.listdir(fullPath)
+    for file in files:
+        if file[-4:] == ".gif" or file[-4:] == ".jpg" or file[-4:] == ".png":# or file[-5:] == ".jpeg" or file[-5:] == ".webm":
+            fileSplit = str(file).split(name + " - ")[1] # removes the name and stuff
+            fileSplit = fileSplit[:-4]
+            try:
+                fileSplit = int(fileSplit)
+            except:
+                print("file reading broke!")
+                continue
+            
+            if fileSplit > startingIndex:
+                startingIndex = fileSplit
+
+    if startingIndex != 0:
+        startingIndex = startingIndex + 1 # adding 1 to avoid overriding first image
+    return startingIndex
+
+            
     
 def main():
     global yOffset
@@ -426,17 +478,21 @@ def main():
         pickUp = getNumFromUser("index of image:") - 1
     else:
         print("starting from the beginning")
+
+    saved = getStartingIndex(SAVEPATH, currentName)
+    amount = amount + saved
     startingIn(10)
     addMinusVideoTag()
     time.sleep(2)
     goToPage(pickUp)
-    moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
+    moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
     mouse.wheel(800)
 
     # initial image select
     moveMouse(pictureX(0), pictureY(0), MOUSEDELAY)
     goIntoPic()
 
+    first = True
     while saved < amount:
         progress(saved, amount)
         if saved != 0:
@@ -446,10 +502,8 @@ def main():
 
         openSaveMenu()
 
-        if saved == 0:
-            saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName, True)
-        else:
-            saveImage(checkIfnotCreateDir(SAVEPATH, currentName), saved, currentName)
+        saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName, first)
+        #saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName)
 
         time.sleep(0.4)
         ss = mss.mss()
@@ -460,8 +514,12 @@ def main():
             pressKey("right_arrow")
         saved = saved + 1
         clear()
-
+        first = False
+    progress(saved, amount)
     print("finished")
+
+# getSaveImagePath(SAVEPATH, "weighing_breasts")
+# print(getStartingIndex(SAVEPATH, "dido_(azur_lane)"))
 
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
