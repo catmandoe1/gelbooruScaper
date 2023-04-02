@@ -363,6 +363,8 @@ def checkPageAndCompare():
         time.sleep(2)
         return True
     else:
+        if SHUTDOWN_ON_COMPLETION:
+            shutdown()
         raise TimeoutError("Page timed out or reached end")
     
 def startingIn(sec):
