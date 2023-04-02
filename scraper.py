@@ -10,10 +10,17 @@ import pyperclip as clipboard
 import os
 import json
 
-global saved
-global yOffset
+# global saved
+# global yOffset
+# global savedVid
+# global savedImg
+savedImg = False
+savedVid = False
 
 """
+    Written for windows 11, Firefox
+
+
     used to avoid those annoying unclosable banners.
     the standard notice of 02/04/2023 (UK date) offset would be 36 (pixels)
     this is overriden by settings.json, edit that instead
@@ -28,6 +35,7 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
         "screen": 1,
         "shutdown_on_completion": False,
         "y_offset": 0,
+        "save_path": "default",
         "mouse_delay": 0.1,
         "max_image_width": 175,
         "max_image_height": 175,
@@ -51,7 +59,10 @@ IMAGES_PER_COLUMN = DATA["images_per_column"]
 IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
 INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
-SAVEPATH = os.getcwd() + r"\saves"
+if DATA["save_path"] == "default":
+    SAVEPATH = os.getcwd() + r"\saves"
+else:
+    SAVEPATH = DATA["save_path"]
 yOffset = DATA["y_offset"]
 
 if SCREEN == 1:
@@ -64,6 +75,14 @@ imageLocation = {
     "left": 260 + offset,
     "width": 1640,
     "height": 691 - yOffset
+}
+
+# not part of the page so yoffset is not needed
+saveMenuLocation = {
+    "top": 3,
+    "left": 10 + offset,
+    "width": 941,
+    "height": 27
 }
 
 pageContentLocation = {
@@ -92,7 +111,8 @@ def pauseAndWait():
     startingIn(5)
 
 def clear():
-    os.system("cls")
+    pass
+    #os.system("cls")
       
 def click(type = "left"):
     #print("clicked")
@@ -137,6 +157,8 @@ def getSaveImagePath(path, name):
 
     
 def saveImage(savePath, nSaved, name, first = False):
+    global savedImg
+    global savedVid
     if first:
         moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
         click()
@@ -149,7 +171,47 @@ def saveImage(savePath, nSaved, name, first = False):
 
         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
         click()
+        #super long overly complex if-ing
     else:
+        if not savedVid:
+            previous = clipboard.paste() # preserves previous clipboard
+
+            pressKey("ctrl+c")
+            time.sleep(0.1)
+            extension = clipboard.paste()[-4:]
+            print(extension)
+
+            if extension == ".mp4": # by default videos go to the videos folder
+                moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+                click()
+                keyboard.write(savePath)
+                pressKey("enter")
+
+                moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+                click()
+                savedVid = True
+            else:
+                if not savedImg:
+                    moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+                    click()
+                    keyboard.write(savePath)
+                    pressKey("enter")
+
+                    moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+                    click()
+                    savedImg = True
+            clipboard.copy(previous)
+        else:
+            if not savedImg:
+                moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+                click()
+                keyboard.write(savePath)
+                pressKey("enter")
+
+                moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+                click()
+                savedImg = True
+
         keyboard.write(f"{name} - {nSaved}")
         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
         click()
@@ -158,10 +220,32 @@ def openSaveMenu():
     #moving possible translation
     mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
     moveMouse(-100, 0, MOUSEDELAY, True)
+    time.sleep(0.5)
+    click() # stops possible video
     click("right")
     time.sleep(0.1)
+    pss = mss.mss() # making sure that the save menu opened
     pressKey("v")
-    time.sleep(0.25)
+    #time.sleep(0.25)
+    pss = np.array(pss.grab(saveMenuLocation))
+    pss = cv2.cvtColor(pss, cv2.COLOR_BGR2GRAY)
+
+    repeats = 0
+    while True:
+        ss = mss.mss()
+        ss = np.array(ss.grab(saveMenuLocation))
+        ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
+        
+        result = cv2.matchTemplate(ss, pss, cv2.TM_CCOEFF_NORMED)
+        _, maxV, _, _ = cv2.minMaxLoc(result)
+        #if repeats % 10 == 0:
+        print(maxV)
+
+        if maxV < 0.99:
+            print("save menu opened")
+            return
+
+    
 
 def goIntoPic():
     ss = mss.mss()
@@ -486,9 +570,9 @@ def main():
 
     saved = getStartingIndex(SAVEPATH, currentName)
     amount = amount + saved
-    startingIn(10)
-    addMinusVideoTag()
-    time.sleep(2)
+    startingIn(3)
+    #addMinusVideoTag()
+    #time.sleep(2)
     goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
     mouse.wheel(800)
@@ -501,7 +585,8 @@ def main():
     while saved < amount:
         progress(saved, amount)
         if saved != 0:
-            time.sleep(1) # super simple fix
+            time.sleep(1) # super simple fix&pid=1061
+            
             waitTillImageSwitched(preSnip)
             waitTillImageLoaded()
 
@@ -516,7 +601,9 @@ def main():
         preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
 
         if saved != amount - 1:
-            pressKey("right_arrow")
+            moveMouse(239 + offset, 282 + yOffset, MOUSEDELAY) # clicks off to the side to deselect possible video
+            click()
+            pressKey("right_arrow") # next page
         saved = saved + 1
         clear()
         first = False
