@@ -105,8 +105,8 @@ def click(type = "left"):
     else:
         raise ValueError(f"{type} is not a valid click")
 
-def moveMouse(x, y, time = 0):
-    mouse.move(x, y, True, time)
+def moveMouse(x, y, time = 0, relative=False):
+    mouse.move(x, y, not relative, time)
 
 def pressKey(key):
     try:
@@ -155,6 +155,9 @@ def saveImage(savePath, nSaved, name, first = False):
         click()
 
 def openSaveMenu():
+    #moving possible translation
+    mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
+    moveMouse(-100, 0, MOUSEDELAY, True)
     click("right")
     time.sleep(0.1)
     pressKey("v")
@@ -166,7 +169,7 @@ def goIntoPic():
     preSum = pre.sum()
 
     click()
-    moveMouse(262 + offset, 343 + yOffset, MOUSEDELAY) # ready to save
+    moveMouse(266 + offset, 347 + yOffset, MOUSEDELAY)
     time.sleep(0.4)
 
     while True:
@@ -184,7 +187,7 @@ def waitTillImageLoaded():
     pre = np.array(ss.grab(imageLocation))
     preSum = pre.sum()
 
-    moveMouse(262 + offset, 343 + yOffset, MOUSEDELAY) # ready to save
+    moveMouse(266 + offset, 347 + yOffset, MOUSEDELAY) # ready to save
 
     while True:
         ss = mss.mss()
