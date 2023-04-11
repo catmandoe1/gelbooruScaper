@@ -12,11 +12,6 @@ import json
 import requests
 import shutil
 
-
-# global saved
-# global yOffset
-# global savedVid
-# global savedImg
 """
     Written for and with Windows 11, Firefox, Python 3.10.7
 
@@ -35,6 +30,7 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
         "screen": 1,
         "shutdown_on_completion": False,
         "y_offset": 0,
+        "clear_console": True,
         "save_path": "default",
         "mouse_delay": 0.1,
         "max_image_width": 175,
@@ -51,7 +47,7 @@ else:
     DATA = json.load(open("settings.json", "r"))
 
 SCREEN = DATA["screen"] # 1 OR 2 (assuming 1920x1080)
-MOUSEDELAY = DATA["mouse_delay"] # put to zero for no mouse animations
+MOUSEDELAY = DATA["mouse_delay"] # zero for no mouse animations or delay
 MAX_IMAGE_WIDTH = DATA["max_image_width"]
 MAX_IMAGE_HEIGHT = DATA["max_image_height"]
 IMAGES_PER_ROW = DATA["images_per_row"]
@@ -59,6 +55,7 @@ IMAGES_PER_COLUMN = DATA["images_per_column"]
 IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
 INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
+CLEAR_CONSOLE = DATA["clear_console"]
 if DATA["save_path"] == "default":
     SAVEPATH = os.getcwd() + r"\saves"
 else:
@@ -77,45 +74,24 @@ imageLocation = {
     "height": 691 - yOffset
 }
 
-# not part of the page so yoffset is not needed
-saveMenuLocation = {
-    "top": 3,
-    "left": 10 + offset,
-    "width": 941,
-    "height": 27
-}
-
-pageContentLocation = {
-    "top": 272 + yOffset,
-    "left": 240 + offset,
-    "width": 1661,
-    "height": 753 - yOffset
-}
-
 # the number is equal to the sum of defualt background, when the image loads it changes
 # sum is height of image * width of image * the sum of a pixel (default background rgba = 31, 31, 31, 255)
 SUM_OF_IMAGE_BACKGROUND = (imageLocation["height"] * imageLocation["width"]) * (31 + 31 + 31 + 255)
 
 def shutdown():
     os.system("shutdown /s /t 1")
-    #print("shutdown!!!")
 
 def killSwitch():
     if SHUTDOWN_ON_COMPLETION:
         shutdown()
     sys.exit("Stopped by user or Finished")
 
-def pauseAndWait():
-    print("paused at image", saved)
-    input("press enter to continue...")
-    startingIn(5)
 
 def clear():
-    pass
-    #os.system("cls")
+    if CLEAR_CONSOLE:
+        os.system("cls")
       
 def click(type = "left"):
-    #print("clicked")
     if type == "left":
         mouse.click(type)
     elif type == "right":
@@ -168,95 +144,6 @@ def saveImage(url, savePath, name, nSaved):
     else:
         print(f"{url} is an invalid url/image/video")
 
-# def saveImage(savePath, nSaved, name, first = False):
-#     global savedImg
-#     global savedVid
-#     if first:
-#         moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-#         click()
-#         keyboard.write(savePath)
-#         pressKey("enter")
-
-#         moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-#         click()
-#         keyboard.write(f"{name} - {nSaved}")
-
-#         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-#         click()
-#         #super long overly complex if-ing
-#     else:
-#         if not savedVid:
-#             previous = clipboard.paste() # preserves previous clipboard
-
-#             pressKey("ctrl+c")
-#             time.sleep(0.1)
-#             extension = clipboard.paste()[-4:]
-#             print(extension)
-
-#             if extension == ".mp4": # by default videos go to the videos folder
-#                 moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-#                 click()
-#                 keyboard.write(savePath)
-#                 pressKey("enter")
-
-#                 moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-#                 click()
-#                 savedVid = True
-#             else:
-#                 if not savedImg:
-#                     moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-#                     click()
-#                     keyboard.write(savePath)
-#                     pressKey("enter")
-
-#                     moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-#                     click()
-#                     savedImg = True
-#             clipboard.copy(previous)
-#         else:
-#             if not savedImg:
-#                 moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-#                 click()
-#                 keyboard.write(savePath)
-#                 pressKey("enter")
-
-#                 moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-#                 click()
-#                 savedImg = True
-
-#         keyboard.write(f"{name} - {nSaved}")
-#         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-#         click()
-
-def openSaveMenu():
-    #moving possible translation
-    mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
-    moveMouse(-100, 0, MOUSEDELAY, True)
-    time.sleep(0.5)
-    click() # stops possible video
-    click("right")
-    time.sleep(0.1)
-    pss = mss.mss() # making sure that the save menu opened
-    pressKey("v")
-    #time.sleep(0.25)
-    pss = np.array(pss.grab(saveMenuLocation))
-    pss = cv2.cvtColor(pss, cv2.COLOR_BGR2GRAY)
-
-    repeats = 0
-    while True:
-        ss = mss.mss()
-        ss = np.array(ss.grab(saveMenuLocation))
-        ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-        
-        result = cv2.matchTemplate(ss, pss, cv2.TM_CCOEFF_NORMED)
-        _, maxV, _, _ = cv2.minMaxLoc(result)
-        #if repeats % 10 == 0:
-        print(maxV)
-
-        if maxV < 0.99:
-            print("save menu opened")
-            return
-
 def getContentURL():
     #moving possible translation
     mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
@@ -282,7 +169,7 @@ def goIntoPic():
         ss = mss.mss()
         area = np.array(ss.grab(imageLocation))
         sum = area.sum()
-        #394367520
+        #sum = 394367520 by default
 
         if sum != SUM_OF_IMAGE_BACKGROUND and sum != preSum: 
             print("image loaded")
@@ -302,39 +189,6 @@ def waitTillImageLoaded():
         if sum != SUM_OF_IMAGE_BACKGROUND: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
             print("image loaded")
             break
-
-
-def checkIfPic(y, i):
-    location = {
-    "top": pictureY(y),
-    "left": pictureX(i),
-    "width": 1,
-    "height": 3
-    }
-    
-    timeout = 0
-    while True:
-        if timeout == 500:
-            raise TimeoutError("timed out or reached end")
-        ss = mss.mss()
-        area = np.array(ss.grab(location))
-        if area.sum() != 1044: # like SUM_OF_IMAGE_BACKGROUND
-            break
-        
-        timeout = timeout + 1
-        time.sleep(0.01)
-
-def addMinusVideoTag():
-    print("adding \"-video\" tag...")
-    moveMouse(210 + offset, 240 + yOffset, MOUSEDELAY) # tag bar
-    click()
-    pressKey("end")
-    pressKey("space")
-    keyboard.write("-video")
-    pressKey("enter")
-    print("complete")
-    time.sleep(3)
-    print("starting...")
 
 def getAmtPagesFromUser(*message):
     while True:
@@ -416,15 +270,6 @@ def getCurrentUrl(mouseReturnToStart = False):
     previousClipBoard = clipboard.paste()
     prevCords = mouse.get_position()
 
-    # if endX != -1:
-    #     x = endX
-    # else:
-    #     x = prevCords[0]
-    # if endY != -1:
-    #     y = endY
-    # else:
-    #     y = prevCords[1]
-
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
     pressKey("ctrl+c")
@@ -442,13 +287,7 @@ def getCurrentUrl(mouseReturnToStart = False):
 def checkPageAndCompare():
     global saved
 
-    #savedBoard = clipboard.paste() # keeping last copied thing
-
     print("compairing ids to check if page has updated")
-    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    # click()
-    # pressKey("ctrl+c")
-    # time.sleep(0.1)
     url = getCurrentUrl() # gets url of current page
 
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
@@ -456,23 +295,10 @@ def checkPageAndCompare():
     pressKey("right_arrow")
     time.sleep(2) # waiting for new url
 
-    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    # click()
-    # pressKey("ctrl+c")
-    # time.sleep(0.1)
     url2 = getCurrentUrl() # gets url of current page
 
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     click()
-
-    #clipboard.copy(savedBoard)
-
-    
-    #url = r"https://gelbooru.com/index.php?page=post&s=view&id=8042932&tags=hayasaka_%28a865675167774%29"
-    #url2 = r"https://gelbooru.com/index.php?page=post&s=view&id=8042931&tags=hayasaka_%28a865675167774%29"
-
-    print(url)
-    print(url2)
 
     url = url.split("&")
     url2 = url2.split("&")
@@ -511,18 +337,7 @@ def goToPage(currentImageNum):
     if currentImageNum < 1:
         print("program already starts from here")
         return
-    #page = currentImageNum / IMAGES_PER_PAGE
-    #page = currentImageNum
-    #imgOnPage = currentImageNum - page * IMAGES_PER_PAGE
-
-    # prevClipBoard = clipboard.paste() # saving previous so its not lost
-    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    # click()
-    # pressKey("ctrl+c")
-    # time.sleep(0.1)
-    # url = clipboard.paste() # gets url of current page
     url = getCurrentUrl()
-    #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=cygnet_%28azur_lane%29+-video"
 
     url = url.split("&")
     print(url)
@@ -550,7 +365,6 @@ def goToPage(currentImageNum):
         keyboard.write(newUrl)
 
     pressKey("enter")
-    #clipboard.copy(prevClipBoard) # setting back clipboard
     time.sleep(2)
 
 def getStartingIndex(path, name):
@@ -601,7 +415,6 @@ def main():
     print("choosen screen =", SCREEN)
 
     keyboard.add_hotkey("alt+q", killSwitch)
-    keyboard.add_hotkey("alt+p", pauseAndWait)
 
     
     currentName = input("enter name: ")
@@ -609,7 +422,7 @@ def main():
     amount = getAmtPagesFromUser("enter amount of images to scrape,", "-1 = infinite", f"use a surfix of p to count in pages (p2 = {IMAGES_PER_PAGE * 2} images)")
 
     if amount == -1:
-        amount = sys.maxsize * 2 + 1 # big number !!!
+        amount = sys.maxsize * 2 # big number !!!
     elif amount == 0:
         raise ValueError("cant scrape 0 images")
     
@@ -622,8 +435,7 @@ def main():
     saved = getStartingIndex(SAVEPATH, currentName)
     amount = amount + saved
     startingIn(10)
-    #addMinusVideoTag()
-    #time.sleep(2)
+
     goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
     mouse.wheel(800)
@@ -635,16 +447,12 @@ def main():
     while saved < amount:
         progress(saved, amount)
         if saved != 0:
-            time.sleep(1) # super simple fix&pid=1061
+            time.sleep(1) # super simple fix
             
             waitTillImageSwitched(preSnip)
             waitTillImageLoaded()
 
-        #openSaveMenu()
         url = getContentURL()
-
-        #saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName, first)
-        #saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName)
         saveImage(url, getSaveImagePath(SAVEPATH, currentName), currentName, saved)
 
         #time.sleep(0.4)
@@ -662,18 +470,6 @@ def main():
     progress(saved, amount)
     print("finished")
 
-# getSaveImagePath(SAVEPATH, "weighing_breasts")
-# print(getStartingIndex(SAVEPATH, "dido_(azur_lane)"))
-# name = "1111"
-# nSaved = 9
-# url = "https://video-cdn3.gelbooru.com/images/2e/9c/2e9c405c06b915a4148c38e4cab538a1.mp4"#"https://img3.gelbooru.com//images/95/2c/952cc22f2dfa57989c64e7bc4421792b.jpg"
-# extension = url.split(".")
-# extension = extension[len(extension) - 1]
-# path = f"{getSaveImagePath(SAVEPATH, name)}\\{name} - {nSaved}.{extension}"
-# print(path)
-# print(path.split("."))
-# request = requests.get(url, stream = True)
-# shutil.copyfileobj(request.raw, open(path, "wb"))
 
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
@@ -683,5 +479,3 @@ if SHUTDOWN_ON_COMPLETION:
     shutdown()
 print("Press enter to close...")
 input()
-
-# new branch!!!
