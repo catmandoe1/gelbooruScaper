@@ -12,15 +12,13 @@ import json
 import requests
 import shutil
 
+
 # global saved
 # global yOffset
 # global savedVid
 # global savedImg
-savedImg = False
-savedVid = False
-
 """
-    Written for windows 11, Firefox
+    Written for and with Windows 11, Firefox, Python 3.10.7
 
 
     yoffset used to avoid those annoying unclosable banners.
@@ -157,66 +155,78 @@ def getSaveImagePath(path, name):
 
     return fullPath
 
-    
-def saveImage(savePath, nSaved, name, first = False):
-    global savedImg
-    global savedVid
-    if first:
-        moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-        click()
-        keyboard.write(savePath)
-        pressKey("enter")
 
-        moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-        click()
-        keyboard.write(f"{name} - {nSaved}")
+def saveImage(url, savePath, name, nSaved):
+    request = requests.get(url, stream = True)
 
-        moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-        click()
-        #super long overly complex if-ing
+    if request.status_code == 200:
+        print("downloading...")
+        extension = url.split(".")
+        extension = extension[len(extension) - 1]
+        shutil.copyfileobj(request.raw, open(f"{savePath}\\{name} - {nSaved}.{extension}", "wb"))
+        print(f"downloaded {savePath} from {url}")
     else:
-        if not savedVid:
-            previous = clipboard.paste() # preserves previous clipboard
+        print(f"{url} is an invalid url/image/video")
 
-            pressKey("ctrl+c")
-            time.sleep(0.1)
-            extension = clipboard.paste()[-4:]
-            print(extension)
+# def saveImage(savePath, nSaved, name, first = False):
+#     global savedImg
+#     global savedVid
+#     if first:
+#         moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+#         click()
+#         keyboard.write(savePath)
+#         pressKey("enter")
 
-            if extension == ".mp4": # by default videos go to the videos folder
-                moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-                click()
-                keyboard.write(savePath)
-                pressKey("enter")
+#         moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+#         click()
+#         keyboard.write(f"{name} - {nSaved}")
 
-                moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-                click()
-                savedVid = True
-            else:
-                if not savedImg:
-                    moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-                    click()
-                    keyboard.write(savePath)
-                    pressKey("enter")
+#         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
+#         click()
+#         #super long overly complex if-ing
+#     else:
+#         if not savedVid:
+#             previous = clipboard.paste() # preserves previous clipboard
 
-                    moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-                    click()
-                    savedImg = True
-            clipboard.copy(previous)
-        else:
-            if not savedImg:
-                moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-                click()
-                keyboard.write(savePath)
-                pressKey("enter")
+#             pressKey("ctrl+c")
+#             time.sleep(0.1)
+#             extension = clipboard.paste()[-4:]
+#             print(extension)
 
-                moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-                click()
-                savedImg = True
+#             if extension == ".mp4": # by default videos go to the videos folder
+#                 moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+#                 click()
+#                 keyboard.write(savePath)
+#                 pressKey("enter")
 
-        keyboard.write(f"{name} - {nSaved}")
-        moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-        click()
+#                 moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+#                 click()
+#                 savedVid = True
+#             else:
+#                 if not savedImg:
+#                     moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+#                     click()
+#                     keyboard.write(savePath)
+#                     pressKey("enter")
+
+#                     moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+#                     click()
+#                     savedImg = True
+#             clipboard.copy(previous)
+#         else:
+#             if not savedImg:
+#                 moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
+#                 click()
+#                 keyboard.write(savePath)
+#                 pressKey("enter")
+
+#                 moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
+#                 click()
+#                 savedImg = True
+
+#         keyboard.write(f"{name} - {nSaved}")
+#         moveMouse(780 + offset, 506, MOUSEDELAY) # save button
+#         click()
 
 def openSaveMenu():
     #moving possible translation
@@ -247,7 +257,17 @@ def openSaveMenu():
             print("save menu opened")
             return
 
-    
+def getContentURL():
+    #moving possible translation
+    mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
+    moveMouse(-100, 0, MOUSEDELAY, True)
+    time.sleep(0.5)
+    click() # stops possible video
+    click("right")
+    time.sleep(0.1)
+    pressKey("o") # gets image/video url
+    time.sleep(0.1)
+    return clipboard.paste()
 
 def goIntoPic():
     ss = mss.mss()
@@ -612,7 +632,6 @@ def main():
     moveMouse(pictureX(0), pictureY(0), MOUSEDELAY)
     goIntoPic()
 
-    first = True
     while saved < amount:
         progress(saved, amount)
         if saved != 0:
@@ -621,12 +640,14 @@ def main():
             waitTillImageSwitched(preSnip)
             waitTillImageLoaded()
 
-        openSaveMenu()
+        #openSaveMenu()
+        url = getContentURL()
 
-        saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName, first)
+        #saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName, first)
         #saveImage(getSaveImagePath(SAVEPATH, currentName), saved, currentName)
+        saveImage(url, getSaveImagePath(SAVEPATH, currentName), currentName, saved)
 
-        time.sleep(0.4)
+        #time.sleep(0.4)
         ss = mss.mss()
         ss = np.array(ss.grab(imageLocation))
         preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
@@ -643,6 +664,17 @@ def main():
 
 # getSaveImagePath(SAVEPATH, "weighing_breasts")
 # print(getStartingIndex(SAVEPATH, "dido_(azur_lane)"))
+# name = "1111"
+# nSaved = 9
+# url = "https://video-cdn3.gelbooru.com/images/2e/9c/2e9c405c06b915a4148c38e4cab538a1.mp4"#"https://img3.gelbooru.com//images/95/2c/952cc22f2dfa57989c64e7bc4421792b.jpg"
+# extension = url.split(".")
+# extension = extension[len(extension) - 1]
+# path = f"{getSaveImagePath(SAVEPATH, name)}\\{name} - {nSaved}.{extension}"
+# print(path)
+# print(path.split("."))
+# request = requests.get(url, stream = True)
+# shutil.copyfileobj(request.raw, open(path, "wb"))
+
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
 main()
