@@ -9,6 +9,8 @@ import cv2
 import pyperclip as clipboard
 import os
 import json
+import requests
+import shutil
 
 # global saved
 # global yOffset
@@ -21,7 +23,7 @@ savedVid = False
     Written for windows 11, Firefox
 
 
-    used to avoid those annoying unclosable banners.
+    yoffset used to avoid those annoying unclosable banners.
     the standard notice of 02/04/2023 (UK date) offset would be 36 (pixels)
     this is overriden by settings.json, edit that instead
 
@@ -389,33 +391,61 @@ def waitTillImageSwitched(previousImage):
             if checkPageAndCompare():
                 return
 
-def checkPageAndCompare():
-    global saved
+# leaving endx, y default means the mouse will return to the place it started
+def getCurrentUrl(mouseReturnToStart = False):
+    previousClipBoard = clipboard.paste()
+    prevCords = mouse.get_position()
 
-    savedBoard = clipboard.paste() # keeping last copied thing
+    # if endX != -1:
+    #     x = endX
+    # else:
+    #     x = prevCords[0]
+    # if endY != -1:
+    #     y = endY
+    # else:
+    #     y = prevCords[1]
 
-    print("compairing ids to check if page has updated")
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
     pressKey("ctrl+c")
     time.sleep(0.1)
     url = clipboard.paste() # gets url of current page
+    print("got url:", url)
+
+    if mouseReturnToStart:
+        moveMouse(prevCords[0], prevCords[1], MOUSEDELAY)
+
+    clipboard.copy(previousClipBoard)
+    return url
+
+
+def checkPageAndCompare():
+    global saved
+
+    #savedBoard = clipboard.paste() # keeping last copied thing
+
+    print("compairing ids to check if page has updated")
+    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    # click()
+    # pressKey("ctrl+c")
+    # time.sleep(0.1)
+    url = getCurrentUrl() # gets url of current page
 
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     click()
     pressKey("right_arrow")
     time.sleep(2) # waiting for new url
 
-    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    click()
-    pressKey("ctrl+c")
-    time.sleep(0.1)
-    url2 = clipboard.paste() # gets url of current page
+    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    # click()
+    # pressKey("ctrl+c")
+    # time.sleep(0.1)
+    url2 = getCurrentUrl() # gets url of current page
 
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
     click()
 
-    clipboard.copy(savedBoard)
+    #clipboard.copy(savedBoard)
 
     
     #url = r"https://gelbooru.com/index.php?page=post&s=view&id=8042932&tags=hayasaka_%28a865675167774%29"
@@ -465,12 +495,13 @@ def goToPage(currentImageNum):
     #page = currentImageNum
     #imgOnPage = currentImageNum - page * IMAGES_PER_PAGE
 
-    prevClipBoard = clipboard.paste() # saving previous so its not lost
-    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    click()
-    pressKey("ctrl+c")
-    time.sleep(0.1)
-    url = clipboard.paste() # gets url of current page
+    # prevClipBoard = clipboard.paste() # saving previous so its not lost
+    # moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
+    # click()
+    # pressKey("ctrl+c")
+    # time.sleep(0.1)
+    # url = clipboard.paste() # gets url of current page
+    url = getCurrentUrl()
     #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=cygnet_%28azur_lane%29+-video"
 
     url = url.split("&")
@@ -499,7 +530,7 @@ def goToPage(currentImageNum):
         keyboard.write(newUrl)
 
     pressKey("enter")
-    clipboard.copy(prevClipBoard) # setting back clipboard
+    #clipboard.copy(prevClipBoard) # setting back clipboard
     time.sleep(2)
 
 def getStartingIndex(path, name):
@@ -570,7 +601,7 @@ def main():
 
     saved = getStartingIndex(SAVEPATH, currentName)
     amount = amount + saved
-    startingIn(3)
+    startingIn(10)
     #addMinusVideoTag()
     #time.sleep(2)
     goToPage(pickUp)
@@ -612,7 +643,6 @@ def main():
 
 # getSaveImagePath(SAVEPATH, "weighing_breasts")
 # print(getStartingIndex(SAVEPATH, "dido_(azur_lane)"))
-
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
 main()
