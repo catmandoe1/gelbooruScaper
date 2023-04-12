@@ -401,8 +401,56 @@ def getStartingIndex(path, name):
         startingIndex = startingIndex + 1 # adding 1 to avoid overriding first image
     return startingIndex
 
-            
+def createLog(logPath, nSaved, savedLeft, name, lastURL):
+    fb = open(f"{logPath}\\{name}.log", "w")
+    fb.write(f"savepath: {logPath}\r")
+    fb.write(f"progress: {nSaved} / {savedLeft}\r")
+    fb.write(f"last image page: {lastURL}")
+    if nSaved == savedLeft:
+        fb.write("\rfinished")
+
+    fb.close()
+    print("created log")
+
+def readLog(logPath):
+    try:
+        files = os.listdir(logPath)
+    except:
+        raise Exception("invalid path")
+    data = []
+    path = ""
+    for file in files:
+        if str(file).split(".")[len(str(file).split(".")) - 1] == "log":
+            path = file
+            break
     
+    if path == "":
+        return
+    
+    fb = open(logPath + "\\" + path, "r")
+    lines = fb.readlines()
+    fb.close()
+    filterdLines = []
+    for line in lines:
+        filterdLines.append(line.replace("\n", ""))
+
+    for i in range(0, 4):
+        if i == 3:
+            try:
+                filterdLines[i]
+                data.append(True)
+            except:
+                data.append(False)
+            break
+        if i != 1:
+            data.append(str(filterdLines[i]).split(": ")[1])
+        else:
+            text = str(filterdLines[i]).split(": ")[1].split(" / ")
+            data.append(text[0]) # current progress
+            data.append(text[1]) # max progress
+
+    return data # savepath, current progress, max progress, last page url, isFinished
+
 def main():
     global yOffset
     global saved
@@ -426,9 +474,11 @@ def main():
     elif amount == 0:
         raise ValueError("cant scrape 0 images")
     
-    pickUp = 0
-    if input("start from a choosen image index? [y/n]: ") == "y":
-        pickUp = getNumFromUser("index of image:") - 1
+    if input("start from a previous scrape? [y/n]: ") == "y":
+        data = readLog(getSaveImagePath(SAVEPATH, input("enter it's name")))
+        if data[4]:
+            print("that scrape already finished")
+            raise SystemExit("that scrape already finished")
     else:
         print("starting from the beginning")
 
@@ -436,7 +486,7 @@ def main():
     amount = amount + saved
     startingIn(10)
 
-    goToPage(pickUp)
+    #goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
     mouse.wheel(800)
 
@@ -468,8 +518,11 @@ def main():
         clear()
         first = False
     progress(saved, amount)
+    createLog(getSaveImagePath(SAVEPATH, currentName), saved, amount, currentName, getCurrentUrl())
     print("finished")
 
+# createLog(getSaveImagePath(SAVEPATH, "logtest"), 3, 4, "logtest", "https://www.youtube.com")
+# print(readLog(getSaveImagePath(SAVEPATH, "logtest")))
 
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
