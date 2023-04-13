@@ -524,6 +524,22 @@ def main():
 # createLog(getSaveImagePath(SAVEPATH, "logtest"), 3, 4, "logtest", "https://www.youtube.com")
 # print(readLog(getSaveImagePath(SAVEPATH, "logtest")))
 
+def noMouse():
+    # video url https://video-cdn3.gelbooru.com/images/77/91/7791c17f55b740800e82d4d84b24ff94.mp4
+    # image url https://img3.gelbooru.com//images/66/69/6669a75ad857faa53d5136b36f82210b.jpg
+    req = requests.get("https://gelbooru.com/index.php?page=post&s=view&id=7701618&tags=reisalin_stout", stream=True)
+    print(req)
+    html = req.content.decode("utf-8")
+    print(html)
+    print(str(html).find("https://img3.gelbooru.com//images/66/69/6669a75ad857faa53d5136b36f82210b.jpg"))
+    
+    text = ""
+    for i in range(0, 76):
+        text = text + html[3291 + i]
+
+    print(text)
+
+#noMouse()
 print("save path =", SAVEPATH)
 print("\"alt + q\" to exit at anytime")
 main()
