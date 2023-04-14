@@ -11,6 +11,7 @@ import os
 import json
 import requests
 import shutil
+from requests_html import HTMLSession, HTML
 
 """
     Written for and with Windows 11, Firefox, Python 3.10.7
@@ -539,12 +540,24 @@ def noMouse():
 
     print(text)
 
-#noMouse()
-print("save path =", SAVEPATH)
-print("\"alt + q\" to exit at anytime")
-main()
+def noGui():
+    session = HTMLSession()
+    r = session.get("https://gelbooru.com/index.php?page=post&s=view&id=7701618&tags=reisalin_stout")
+    image = r.html.find("#image", first=True)
+    print(image)
+    print(image.attrs["src"])
+    r.html.render(script="navigateNext")
+    image = r.html.find("#image", first=True)
+    print(image)
+    print(image.attrs["src"])
 
-if SHUTDOWN_ON_COMPLETION:
-    shutdown()
-print("Press enter to close...")
-input()
+noGui()
+#noMouse()
+# print("save path =", SAVEPATH)
+# print("\"alt + q\" to exit at anytime")
+# main()
+
+# if SHUTDOWN_ON_COMPLETION:
+#     shutdown()
+# print("Press enter to close...")
+# input()
