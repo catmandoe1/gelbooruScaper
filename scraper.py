@@ -23,6 +23,8 @@ import shutil
 """
 yOffset = 0
 saved = 0
+logText = []
+timeElapsed = 0
 
 if not os.path.exists(os.getcwd() + r"\settings.json"):
     # defaults dont touch
@@ -33,6 +35,7 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
         "clear_console": True,
         "save_path": "default",
         "mouse_delay": 0.1,
+        "avoid_artist_credits": True,
         "max_image_width": 175,
         "max_image_height": 175,
         "images_per_row": 8,
@@ -56,11 +59,16 @@ IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
 INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
 CLEAR_CONSOLE = DATA["clear_console"]
+AVOID_ARTIST_CREDITS = DATA["avoid_artist_credits"]
 if DATA["save_path"] == "default":
     SAVEPATH = os.getcwd() + r"\saves"
 else:
     SAVEPATH = DATA["save_path"]
 yOffset = DATA["y_offset"]
+if AVOID_ARTIST_CREDITS:
+    yCreditOffset = 108
+else:
+    yCreditOffset = 0
 
 if SCREEN == 1:
     offset = 0
@@ -69,9 +77,9 @@ else:
 
 imageLocation = {
     "top": 341 + yOffset,
-    "left": 260 + offset,
+    "left": 260 + offset - yCreditOffset,
     "width": 1640,
-    "height": 691 - yOffset
+    "height": 691 - yOffset - yCreditOffset
 }
 
 # the number is equal to the sum of defualt background, when the image loads it changes
@@ -86,6 +94,50 @@ def killSwitch():
         shutdown()
     sys.exit("Stopped by user or Finished")
 
+def logOut(*text):
+    global logText
+    ctime = getTimeFormatted()
+    newText = ""
+
+    for i in range(0, len(text)):
+        if i == 0:
+            newText = str(text[i])
+        else:
+            newText = newText + " " + str(text[i])
+
+    newText = f"[{ctime}]: {newText}"
+
+    print(newText)
+    logText.append(newText)
+
+def getTimeFormatted():
+    return time.strftime("%H:%M:%S")
+
+def getHrMnScFromSeconds(secs):
+    # translated and adapted from java
+    hours = 0
+    mins = 0
+    hour = "Hours"
+    min = "Minutes"
+    sec = "Seconds"
+    # time = ""
+    # flag = False
+    while secs > 59:
+        secs = secs - 60
+        mins += 1
+    while mins > 59:
+        mins = mins - 60
+        hours += 1
+    if hours == 1:
+        hour = "Hour"
+    if mins == 1:
+        min = "Minute"
+    if secs == 1:
+        sec = "Second"
+    
+    return f"{hours} {hour} {mins} {min} {secs} {sec}"
+
+    
 
 def clear():
     if CLEAR_CONSOLE:
@@ -136,13 +188,13 @@ def saveImage(url, savePath, name, nSaved):
     request = requests.get(url, stream = True)
 
     if request.status_code == 200:
-        print("downloading...")
+        logOut("downloading...")
         extension = url.split(".")
         extension = extension[len(extension) - 1]
         shutil.copyfileobj(request.raw, open(f"{savePath}\\{name} - {nSaved}.{extension}", "wb"))
-        print(f"downloaded {savePath} from {url}")
+        logOut(f"downloaded {savePath} from {url}")
     else:
-        print(f"{url} is an invalid url/image/video")
+        logOut(f"{url} is an invalid url/image/video")
 
 def getContentURL():
     #moving possible translation
@@ -172,7 +224,7 @@ def goIntoPic():
         #sum = 394367520 by default
 
         if sum != SUM_OF_IMAGE_BACKGROUND and sum != preSum: 
-            print("image loaded")
+            logOut("image loaded")
             break
     
 def waitTillImageLoaded():
@@ -180,21 +232,21 @@ def waitTillImageLoaded():
     pre = np.array(ss.grab(imageLocation))
     preSum = pre.sum()
 
-    moveMouse(266 + offset, 347 + yOffset, MOUSEDELAY) # ready to save
+    moveMouse(266 + offset, 347 + yOffset + yCreditOffset, MOUSEDELAY) # ready to save
 
     while True:
         ss = mss.mss()
         area = np.array(ss.grab(imageLocation))
         sum = area.sum()
         if sum != SUM_OF_IMAGE_BACKGROUND: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
-            print("image loaded")
+            logOut("image loaded")
             break
 
 def getAmtPagesFromUser(*message):
     while True:
         try:
             for text in message:
-                print(text)
+                logOut(text)
             x = input()
 
             if x[:1] == "p":
@@ -204,19 +256,19 @@ def getAmtPagesFromUser(*message):
             x = int(x)
             return x
         except:
-            print("invalid input")
+            logOut("invalid input")
 
 def getNumFromUser(*message):
     while True:
         try:
             for text in message:
-                print(text)
+                logOut(text)
             x = input()
 
             x = int(x)
             return x
         except:
-            print("invalid number")
+            logOut("invalid number")
     
 def pictureX(rowStage):
     return (337 + rowStage * 195) + offset
@@ -228,18 +280,18 @@ def progress(nSaved, maxSaved):
     s = "PROGRESS"
     e = ""
     exit = "\"alt + q\" to exit at anytime"
-    print(f"{s:=^100}")
+    logOut(f"{s:=^100}")
     fraction = f"{nSaved} / {maxSaved}"
     precent = f"{round((nSaved / maxSaved) * 100)}%"
     savepath = f"Save path: {SAVEPATH}"
     shutDown = "SHUTDOWN ON COMPLETION IS ENABLED"
-    print(f"{fraction: ^100}")
-    print(f"{precent: ^100}")
-    print(f"{savepath: ^100}")
+    logOut(f"{fraction: ^100}")
+    logOut(f"{precent: ^100}")
+    logOut(f"{savepath: ^100}")
     if SHUTDOWN_ON_COMPLETION:
-        print(f"{shutDown: ^100}")
-    print(f"{exit: ^100}")
-    print(f"{e:=^100}")
+        logOut(f"{shutDown: ^100}")
+    logOut(f"{exit: ^100}")
+    logOut(f"{e:=^100}")
 
 
 def waitTillImageSwitched(previousImage):
@@ -252,16 +304,16 @@ def waitTillImageSwitched(previousImage):
         result = cv2.matchTemplate(ss, previousImage, cv2.TM_CCOEFF_NORMED)
         _, maxV, _, _ = cv2.minMaxLoc(result)
         if repeats % 10 == 0:
-            print(maxV)
+            logOut(maxV)
 
         if maxV < 0.99:
-            print("loaded next image")
+            logOut("loaded next image")
             return
         
         repeats = repeats + 1
 
         if repeats == 100:
-            print("detected no change in page")
+            logOut("detected no change in page")
             if checkPageAndCompare():
                 return
 
@@ -275,7 +327,7 @@ def getCurrentUrl(mouseReturnToStart = False):
     pressKey("ctrl+c")
     time.sleep(0.1)
     url = clipboard.paste() # gets url of current page
-    print("got url:", url)
+    logOut("got url:", url)
 
     if mouseReturnToStart:
         moveMouse(prevCords[0], prevCords[1], MOUSEDELAY)
@@ -287,7 +339,7 @@ def getCurrentUrl(mouseReturnToStart = False):
 def checkPageAndCompare():
     global saved
 
-    print("compairing ids to check if page has updated")
+    logOut("compairing ids to check if page has updated")
     url = getCurrentUrl() # gets url of current page
 
     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
@@ -308,17 +360,17 @@ def checkPageAndCompare():
 
     for tag in url:
         if tag[:3] == "id=":
-            print("id 1:", tag[3:])
+            logOut("id 1:", tag[3:])
             id1 = tag[3:]
             break
     for tag in url2:
         if tag[:3] == "id=":
-            print("id 2:", tag[3:])
+            logOut("id 2:", tag[3:])
             id2 = tag[3:]
             break
 
     if id1 != id2:
-        print("change detected, continuing")
+        logOut("change detected, continuing")
         pressKey("left_arrow")
         time.sleep(2)
         return True
@@ -329,22 +381,22 @@ def checkPageAndCompare():
     
 def startingIn(sec):
     for i in range(sec, 0, -1):
-        print(f"Starting in {i}")
+        logOut(f"Starting in {i}")
         time.sleep(1)
 
 # this is more continue from this picture rather than page
 def goToPage(currentImageNum):
     if currentImageNum < 1:
-        print("program already starts from here")
+        logOut("program already starts from here")
         return
     url = getCurrentUrl()
 
     url = url.split("&")
-    print(url)
+    logOut(url)
     isPid = False
 
     for part in url:
-        print(part[:4])
+        logOut(part[:4])
 
         if part[:4] == "pid=":
             isPid = True
@@ -391,7 +443,7 @@ def getStartingIndex(path, name):
             try:
                 fileSplit = int(fileSplit)
             except:
-                print("file reading broke!")
+                logOut("file reading broke!")
                 continue
             
             if fileSplit > startingIndex:
@@ -405,10 +457,12 @@ def createLog(logPath, nSaved, savedLeft, name, lastURL):
     fb = open(f"{logPath}\\{name}.log", "w")
     fb.write(f"savepath: {logPath}\r")
     fb.write(f"progress: {nSaved} / {savedLeft}\r")
-    fb.write(f"last image page: {lastURL}")
+    fb.write(f"last image page: {lastURL}\r")
     if nSaved == savedLeft:
-        fb.write("\rfinished")
+        fb.write("finished\r")
 
+    for text in logText:
+        fb.write(str(text) + "\r")
     fb.close()
     print("created log")
 
@@ -437,8 +491,10 @@ def readLog(logPath):
     for i in range(0, 4):
         if i == 3:
             try:
-                filterdLines[i]
-                data.append(True)
+                if filterdLines[i] == "finished":
+                    data.append(True)
+                else:
+                    data.append(False)
             except:
                 data.append(False)
             break
@@ -454,13 +510,13 @@ def readLog(logPath):
 def main():
     global yOffset
     global saved
+    global timeElapsed
 
     preSnip = cv2.cvtColor(cv2.imread(f"{os.getcwd()}\\blank.jpg"), cv2.COLOR_BGR2GRAY)
     
-    print("use the settings.json to edit perferences")
-    print("press \"alt+q\" to stop")
-    print("press \"alt+p\" to pause")
-    print("choosen screen =", SCREEN)
+    logOut("use the settings.json to edit perferences")
+    logOut("press \"alt+q\" to stop")
+    logOut("choosen screen =", SCREEN)
 
     keyboard.add_hotkey("alt+q", killSwitch)
 
@@ -477,14 +533,19 @@ def main():
     if input("start from a previous scrape? [y/n]: ") == "y":
         data = readLog(getSaveImagePath(SAVEPATH, input("enter it's name")))
         if data[4]:
-            print("that scrape already finished")
+            logOut("that scrape already finished")
             raise SystemExit("that scrape already finished")
+    elif input("start from a certain index? [y/n]: ") == "y":
+        index = getNumFromUser("enter index:")
+        goToPage(index)
     else:
-        print("starting from the beginning")
+        
+        logOut("starting from the beginning")
 
     saved = getStartingIndex(SAVEPATH, currentName)
     amount = amount + saved
     startingIn(10)
+    timeElapsed = time.time()
 
     #goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
@@ -511,15 +572,16 @@ def main():
         preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
 
         if saved != amount - 1:
-            moveMouse(239 + offset, 282 + yOffset, MOUSEDELAY) # clicks off to the side to deselect possible video
+            moveMouse(239 + offset, 282 + yOffset + yCreditOffset, MOUSEDELAY) # clicks off to the side to deselect possible video
             click()
             pressKey("right_arrow") # next page
         saved = saved + 1
         clear()
         first = False
     progress(saved, amount)
+    logOut("finished")
+    logOut(f"time elapsed: {getHrMnScFromSeconds(round(time.time() - timeElapsed))}")
     createLog(getSaveImagePath(SAVEPATH, currentName), saved, amount, currentName, getCurrentUrl())
-    print("finished")
 
 # createLog(getSaveImagePath(SAVEPATH, "logtest"), 3, 4, "logtest", "https://www.youtube.com")
 # print(readLog(getSaveImagePath(SAVEPATH, "logtest")))
@@ -528,20 +590,20 @@ def noMouse():
     # video url https://video-cdn3.gelbooru.com/images/77/91/7791c17f55b740800e82d4d84b24ff94.mp4
     # image url https://img3.gelbooru.com//images/66/69/6669a75ad857faa53d5136b36f82210b.jpg
     req = requests.get("https://gelbooru.com/index.php?page=post&s=view&id=7701618&tags=reisalin_stout", stream=True)
-    print(req)
+    logOut(req)
     html = req.content.decode("utf-8")
-    print(html)
-    print(str(html).find("https://img3.gelbooru.com//images/66/69/6669a75ad857faa53d5136b36f82210b.jpg"))
+    logOut(html)
+    logOut(str(html).find("https://img3.gelbooru.com//images/66/69/6669a75ad857faa53d5136b36f82210b.jpg"))
     
     text = ""
     for i in range(0, 76):
         text = text + html[3291 + i]
 
-    print(text)
+    logOut(text)
 
 #noMouse()
-print("save path =", SAVEPATH)
-print("\"alt + q\" to exit at anytime")
+logOut("save path =", SAVEPATH)
+logOut("\"alt + q\" to exit at anytime")
 main()
 
 if SHUTDOWN_ON_COMPLETION:
