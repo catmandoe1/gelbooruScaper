@@ -11,6 +11,7 @@ import os
 import json
 import requests
 import shutil
+import requests_html
 
 """
     Written for and with Windows 11, Firefox, Python 3.10.7
@@ -156,6 +157,11 @@ def click(type = "left"):
 def moveMouse(x, y, time = 0, relative=False):
     mouse.move(x, y, not relative, time)
 
+def freeMouse():
+    moveMouse(239 + offset, 950, MOUSEDELAY)
+    pressKey("end")
+    click()
+
 def pressKey(key):
     try:
         keyboard.send(key)
@@ -196,17 +202,20 @@ def saveImage(url, savePath, name, nSaved):
     else:
         logOut(f"{url} is an invalid url/image/video")
 
-def getContentURL():
-    #moving possible translation
-    mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
-    moveMouse(-100, 0, MOUSEDELAY, True)
-    time.sleep(0.5)
-    click() # stops possible video
-    click("right")
-    time.sleep(0.1)
-    pressKey("o") # gets image/video url
-    time.sleep(0.1)
-    return clipboard.paste()
+def getContentURL(HTMLSession: requests_html.HTMLSession, url):
+    r = HTMLSession.get(url)
+    image = r.html.find("#image", first=True)
+    return image.attrs["src"]
+    # #moving possible translation
+    # mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
+    # moveMouse(-100, 0, MOUSEDELAY, True)
+    # time.sleep(0.5)
+    # click() # stops possible video
+    # click("right")
+    # time.sleep(0.1)
+    # pressKey("o") # gets image/video url
+    # time.sleep(0.1)
+    # return clipboard.paste()
 
 def goIntoPic():
     ss = mss.mss()
@@ -319,20 +328,20 @@ def waitTillImageSwitched(previousImage):
 
 # leaving endx, y default means the mouse will return to the place it started
 def getCurrentUrl(mouseReturnToStart = False):
-    previousClipBoard = clipboard.paste()
+    #previousClipBoard = clipboard.paste()
     prevCords = mouse.get_position()
 
     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
     click()
     pressKey("ctrl+c")
-    time.sleep(0.1)
+    time.sleep(0.4)
     url = clipboard.paste() # gets url of current page
     logOut("got url:", url)
 
     if mouseReturnToStart:
         moveMouse(prevCords[0], prevCords[1], MOUSEDELAY)
 
-    clipboard.copy(previousClipBoard)
+    #clipboard.copy(previousClipBoard)
     return url
 
 
@@ -544,8 +553,11 @@ def main():
 
     saved = getStartingIndex(SAVEPATH, currentName)
     amount = amount + saved
-    startingIn(10)
+    startingIn(3)
     timeElapsed = time.time()
+    logOut("starting html session")
+    session = requests_html.HTMLSession()
+    logOut("created")
 
     #goToPage(pickUp)
     moveMouse(1920 / 2 + offset, 1080 / 2 + yOffset, MOUSEDELAY)
@@ -558,22 +570,23 @@ def main():
     while saved < amount:
         progress(saved, amount)
         if saved != 0:
-            time.sleep(1) # super simple fix
+            time.sleep(0.5) # super simple fix
             
-            waitTillImageSwitched(preSnip)
-            waitTillImageLoaded()
+            #waitTillImageSwitched(preSnip)
+            #waitTillImageLoaded()
 
-        url = getContentURL()
+        url = getContentURL(session, getCurrentUrl())
         saveImage(url, getSaveImagePath(SAVEPATH, currentName), currentName, saved)
 
         #time.sleep(0.4)
-        ss = mss.mss()
-        ss = np.array(ss.grab(imageLocation))
-        preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
+        # ss = mss.mss()
+        # ss = np.array(ss.grab(imageLocation))
+        # preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
 
         if saved != amount - 1:
-            moveMouse(239 + offset, 282 + yOffset + yCreditOffset, MOUSEDELAY) # clicks off to the side to deselect possible video
-            click()
+            #moveMouse(239 + offset, 282 + yOffset + yCreditOffset, MOUSEDELAY) # clicks off to the side to deselect possible video
+            freeMouse()
+            #click()
             pressKey("right_arrow") # next page
         saved = saved + 1
         clear()
