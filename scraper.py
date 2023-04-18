@@ -13,15 +13,12 @@ import requests
 import shutil
 import requests_html
 import threading
+import math
 
 """
-    Written for and with Windows 11, Firefox, Python 3.10.7
-
-
-    yoffset used to avoid those annoying unclosable banners.
-    the standard notice of 02/04/2023 (UK date) offset would be 36 (pixels)
-    this is overriden by settings.json, edit that instead
-
+    Written with and for Windows 11, Python 3.10.7
+    Main Program
+    
 """
 yOffset = 0
 saved = 0
@@ -33,16 +30,11 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
     # defaults dont touch
     DATA = {
         "amt_download_threads": 42,
-        #"screen": 1,
         "shutdown_on_completion": False,
-        #"y_offset": 0,
         "clear_console": True,
         "mp4_or_webm": "mp4",
         "save_path": "default",
-        #"mouse_delay": 0.1,
-        #"avoid_artist_credits": True,
-        #"max_image_width": 175,
-        #"max_image_height": 175,
+        "average_file_size_mb": 2.28, # MB - from 8243 images/videos at 18756 MB
         "images_per_row": 8,
         "images_per_column": 6,
         "images_per_page": 42,
@@ -54,44 +46,21 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
 else:
     DATA = json.load(open("settings.json", "r"))
 
-# SCREEN = DATA["screen"] # 1 OR 2 (assuming 1920x1080)
-# MOUSEDELAY = DATA["mouse_delay"] # zero for no mouse animations or delay
-# MAX_IMAGE_WIDTH = DATA["max_image_width"]
-# MAX_IMAGE_HEIGHT = DATA["max_image_height"]
 AMT_DOWNLOAD_THREADS = DATA["amt_download_threads"]
-IMAGES_PER_ROW = DATA["images_per_row"]
-IMAGES_PER_COLUMN = DATA["images_per_column"]
-IMAGES_PER_PAGE = DATA["images_per_page"] # by default on 1920 x 1080
-INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
 CLEAR_CONSOLE = DATA["clear_console"]
 MP4_OR_WEBM = DATA["mp4_or_webm"]
-#AVOID_ARTIST_CREDITS = DATA["avoid_artist_credits"]
+AVERAGE_FILE_SIZE = DATA["average_file_size_mb"]
+IMAGES_PER_ROW = DATA["images_per_row"]
+IMAGES_PER_COLUMN = DATA["images_per_column"]
+IMAGES_PER_PAGE = DATA["images_per_page"]
+INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
+
 if DATA["save_path"] == "default":
     SAVEPATH = os.getcwd() + r"\saves"
 else:
     SAVEPATH = DATA["save_path"]
-# yOffset = DATA["y_offset"]
-# if AVOID_ARTIST_CREDITS:
-#     yCreditOffset = 108
-# else:
-#     yCreditOffset = 0
 
-# if SCREEN == 1:
-#     offset = 0
-# else:
-#     offset = (SCREEN - 1) * 1920
-
-# imageLocation = {
-#     "top": 341 + yOffset,
-#     "left": 260 + offset - yCreditOffset,
-#     "width": 1640,
-#     "height": 691 - yOffset - yCreditOffset
-# }
-
-# the number is equal to the sum of defualt background, when the image loads it changes
-# sum is height of image * width of image * the sum of a pixel (default background rgba = 31, 31, 31, 255)
-#SUM_OF_IMAGE_BACKGROUND = (imageLocation["height"] * imageLocation["width"]) * (31 + 31 + 31 + 255)
 
 def shutdown():
     os.system("shutdown /s /t 1")
@@ -99,7 +68,7 @@ def shutdown():
 def killSwitch():
     if SHUTDOWN_ON_COMPLETION:
         shutdown()
-    sys.exit("Stopped by user or Finished")
+    os._exit(0)
 
 def logOut(*text):
     global logText
@@ -144,35 +113,9 @@ def getHrMnScFromSeconds(secs):
     
     return f"{hours} {hour} {mins} {min} {secs} {sec}"
 
-    
-
 def clear():
     if CLEAR_CONSOLE:
         os.system("cls")
-      
-# def click(type = "left"):
-#     if type == "left":
-#         mouse.click(type)
-#     elif type == "right":
-#         mouse.click(type)
-#     elif type == "middle":
-#         mouse.click(type)
-#     else:
-#         raise ValueError(f"{type} is not a valid click")
-
-# def moveMouse(x, y, time = 0, relative=False):
-#     mouse.move(x, y, not relative, time)
-
-# def freeMouse():
-#     moveMouse(239 + offset, 950, MOUSEDELAY)
-#     pressKey("end")
-#     click()
-
-# def pressKey(key):
-#     try:
-#         keyboard.send(key)
-#     except:
-#         raise ValueError(f"{key} is not a valid key")
     
 def isValidName(name):
     if(not(name and name.strip())):
@@ -219,13 +162,9 @@ def saveImage(url, savePath, name, nSaved):
                 logOut(f"{usedURL} is an invalid url/image/video")
                 return
         
-    #logOut("downloading...")
     extension = usedURL.split(".")
     extension = extension[len(extension) - 1]
     shutil.copyfileobj(request.raw, open(f"{savePath}\\{name} - {nSaved}.{extension}", "wb"))
-    #logOut(f"downloaded {savePath} from {url}")
-    # else:
-    #     logOut(f"{url} is an invalid url/image/video")
 
 def getContentURL(HTMLSession: requests_html.HTMLSession, url):
     r = HTMLSession.get(url)
@@ -241,51 +180,6 @@ def getContentURL(HTMLSession: requests_html.HTMLSession, url):
             return videoSources[1].attrs["src"]
         else:
             raise ValueError(f"\"{MP4_OR_WEBM}\" is not either \"mp4\" or \"webm\"")
-
-    # #moving possible translation
-    # mouse.drag(0, 0, 100, 0, False, MOUSEDELAY)
-    # moveMouse(-100, 0, MOUSEDELAY, True)
-    # time.sleep(0.5)
-    # click() # stops possible video
-    # click("right")
-    # time.sleep(0.1)
-    # pressKey("o") # gets image/video url
-    # time.sleep(0.1)
-    # return clipboard.paste()
-
-# def goIntoPic():
-#     ss = mss.mss()
-#     pre = np.array(ss.grab(imageLocation))
-#     preSum = pre.sum()
-
-#     click()
-#     moveMouse(266 + offset, 347 + yOffset, MOUSEDELAY)
-#     time.sleep(0.4)
-
-#     while True:
-#         ss = mss.mss()
-#         area = np.array(ss.grab(imageLocation))
-#         sum = area.sum()
-#         #sum = 394367520 by default
-
-#         if sum != SUM_OF_IMAGE_BACKGROUND and sum != preSum: 
-#             logOut("image loaded")
-#             break
-    
-# def waitTillImageLoaded():
-#     ss = mss.mss()
-#     pre = np.array(ss.grab(imageLocation))
-#     preSum = pre.sum()
-
-#     moveMouse(266 + offset, 347 + yOffset + yCreditOffset, MOUSEDELAY) # ready to save
-
-#     while True:
-#         ss = mss.mss()
-#         area = np.array(ss.grab(imageLocation))
-#         sum = area.sum()
-#         if sum != SUM_OF_IMAGE_BACKGROUND: #and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
-#             logOut("image loaded")
-#             break
 
 def getAmtPagesFromUser(*message):
     while True:
@@ -314,20 +208,16 @@ def getNumFromUser(*message):
             return x
         except:
             logOut("invalid number")
-    
-# def pictureX(rowStage):
-#     return (337 + rowStage * 195) + offset
-
-# def pictureY(columnStage):
-#     return (384 + (columnStage % 3) * 206) + yOffset
 
 def progress(nSaved, maxSaved):
+    if nSaved > maxSaved:
+        nSaved = maxSaved
     s = "DOWNLOAD PROGRESS"
     e = ""
     exit = "\"alt + q\" to exit at anytime"
     logOut(f"{s:=^100}")
     fraction = f"{nSaved} / {maxSaved}"
-    precent = f"{round((nSaved / maxSaved) * 100)}%"
+    precent = f"{math.floor((nSaved / maxSaved) * 100)}%"
     savepath = f"Save path: {SAVEPATH}"
     shutDown = "SHUTDOWN ON COMPLETION IS ENABLED"
     logOut(f"{fraction: ^100}")
@@ -337,132 +227,11 @@ def progress(nSaved, maxSaved):
         logOut(f"{shutDown: ^100}")
     logOut(f"{exit: ^100}")
     logOut(f"{e:=^100}")
-
-
-# def waitTillImageSwitched(previousImage):
-#     repeats = 0
-#     while True:
-#         ss = mss.mss()
-#         ss = np.array(ss.grab(imageLocation))
-#         ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-        
-#         result = cv2.matchTemplate(ss, previousImage, cv2.TM_CCOEFF_NORMED)
-#         _, maxV, _, _ = cv2.minMaxLoc(result)
-#         if repeats % 10 == 0:
-#             logOut(maxV)
-
-#         if maxV < 0.99:
-#             logOut("loaded next image")
-#             return
-        
-#         repeats = repeats + 1
-
-#         if repeats == 100:
-#             logOut("detected no change in page")
-#             if checkPageAndCompare():
-#                 return
-
-# leaving endx, y default means the mouse will return to the place it started
-# def getCurrentUrl(mouseReturnToStart = False):
-#     #previousClipBoard = clipboard.paste()
-#     prevCords = mouse.get_position()
-
-#     moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-#     click()
-#     pressKey("ctrl+c")
-#     time.sleep(0.4)
-#     url = clipboard.paste() # gets url of current page
-#     logOut("got url:", url)
-
-#     if mouseReturnToStart:
-#         moveMouse(prevCords[0], prevCords[1], MOUSEDELAY)
-
-#     #clipboard.copy(previousClipBoard)
-#     return url
-
-
-# def checkPageAndCompare():
-#     global saved
-
-#     logOut("compairing ids to check if page has updated")
-#     url = getCurrentUrl() # gets url of current page
-
-#     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
-#     click()
-#     pressKey("right_arrow")
-#     time.sleep(2) # waiting for new url
-
-#     url2 = getCurrentUrl() # gets url of current page
-
-#     moveMouse(1920 / 2 + offset, 1080 / 2, MOUSEDELAY)
-#     click()
-
-#     url = url.split("&")
-#     url2 = url2.split("&")
-
-#     id1 = ""
-#     id2 = ""
-
-#     for tag in url:
-#         if tag[:3] == "id=":
-#             logOut("id 1:", tag[3:])
-#             id1 = tag[3:]
-#             break
-#     for tag in url2:
-#         if tag[:3] == "id=":
-#             logOut("id 2:", tag[3:])
-#             id2 = tag[3:]
-#             break
-
-#     if id1 != id2:
-#         logOut("change detected, continuing")
-#         pressKey("left_arrow")
-#         time.sleep(2)
-#         return True
-#     else:
-#         if SHUTDOWN_ON_COMPLETION:
-#             shutdown()
-#         raise TimeoutError("Page timed out or reached end")
     
 def startingIn(sec):
     for i in range(sec, 0, -1):
         logOut(f"Starting in {i}")
         time.sleep(1)
-
-# this is more continue from this picture rather than page
-# def goToPage(currentImageNum):
-#     if currentImageNum < 1:
-#         logOut("program already starts from here")
-#         return
-#     url = getCurrentUrl()
-
-#     url = url.split("&")
-#     logOut(url)
-#     isPid = False
-
-#     for part in url:
-#         logOut(part[:4])
-
-#         if part[:4] == "pid=":
-#             isPid = True
-
-#     if not isPid:
-#         pressKey("end")
-#         keyboard.write(f"&pid={currentImageNum}")
-#     else:
-#         newUrl = ""
-
-#         for part in url:
-#             if part[:4] == "pid=":
-#                 newUrl = newUrl + f"&pid={currentImageNum}"
-#             else:
-#                 newUrl = newUrl + "&" + part
-
-#         newUrl = newUrl[1:] # strips off the first & -> cant be bothered fixing it
-#         keyboard.write(newUrl)
-
-#     pressKey("enter")
-#     time.sleep(2)
 
 def getStartingIndex(path, name):
     startingIndex = 0
@@ -472,15 +241,15 @@ def getStartingIndex(path, name):
     #.jpeg
     #.png
     #.webm
-    newName = name.replace(" ", "-")
-    newName = newName.replace("_", "-")
+    # newName = name.replace(" ", "-")
+    # newName = newName.replace("_", "-")
 
-    fullPath = path + "\\" + newName
+    # fullPath = path + "\\" + newName
 
-    if not os.path.exists(fullPath):
-        os.mkdir(fullPath)
+    # if not os.path.exists(fullPath):
+    #     os.mkdir(fullPath)
 
-    files = os.listdir(fullPath)
+    files = os.listdir(path)
     for file in files:
         if file[-4:] == ".gif" or file[-4:] == ".jpg" or file[-4:] == ".png":# or file[-5:] == ".jpeg" or file[-5:] == ".webm":
             fileSplit = str(file).split(name + " - ")[1] # removes the name and stuff
@@ -507,20 +276,61 @@ def filterLinks(links):
 
     return filteredLinks
 
-def createLog(logPath, nSaved, savedLeft, name, lastURL):
-    fb = open(f"{logPath}\\{name}.log", "w")
+def getFolderContentSizeFormatted(path):
+    files = os.listdir(path)
+    noLogFiles = []
+    byteToMBRatio = (1 / 1024) / 1024 # byte -> kilobyte -> megabyte
+    MBtoGBRatio = 1024
+    useGiga = False
+
+    for file in files:
+        if file.find(".log") == -1:
+            noLogFiles.append(f"{path}\\{file}")
+
+    if len(noLogFiles) > downLoaded:
+        noLogFiles = noLogFiles[-downLoaded:]
+    
+    totalByteSize = 0
+    totalAmt = 0
+
+    for file in noLogFiles:
+        totalByteSize += os.path.getsize(file)
+        totalAmt += 1
+    
+    size = totalByteSize * byteToMBRatio # bytes to megabytes
+
+    if size > MBtoGBRatio:
+        size = size / MBtoGBRatio # megabyte to gigabyte
+        useGiga = True
+
+    text = ""
+    if useGiga:
+        text = f"{round(size, 2)} GB"
+    else:
+        text = f"{round(size, 2)} MB"
+    return text
+
+def createLog(logPath, nSaved, name, startingURL):
+    logFile = f"{logPath}\\{name}.log"
+
+    i = 1
+    while os.path.exists(logFile):
+        logFile = f"{logPath}\\{name}{i}.log"
+        i += 1
+
+    fb = open(logFile, "w")
     fb.write(f"savepath: {logPath}\r")
-    fb.write(f"progress: {nSaved} / {savedLeft}\r")
-    fb.write(f"last image page: {lastURL}\r")
-    if nSaved == savedLeft:
-        fb.write("finished\r")
+    fb.write(f"pages downloaded: {round(nSaved / 42, 2)}\r")
+    fb.write(f"files downloaded: {nSaved}\r")
+    fb.write(f"size of download: {getFolderContentSizeFormatted(logPath)}\r")
+    fb.write(f"starting page: {startingURL}\r\r")
 
     for text in logText:
         fb.write(str(text) + "\r")
     fb.close()
     print("created log")
 
-def readLog(logPath):
+def readLog(logPath): # pretty much useless
     try:
         files = os.listdir(logPath)
     except:
@@ -573,6 +383,7 @@ def addIndexToUrl(url: str, page):
 def compileLinks(HTMLSession: requests_html.HTMLSession, startingUrl, nPages):
     result = []
     for i in range(0, nPages):
+        clear()
         logOut(f"Compiling images on pages ... [{i + 1} / {nPages}]")
         r = HTMLSession.get(addIndexToUrl(startingUrl, i))
         links = r.html.absolute_links # type: ignore
@@ -586,6 +397,7 @@ def extractImageURLsFromPages(HTMLSession: requests_html.HTMLSession, links):
     imageURLs = []
     length = len(links)
     for i in range(0, length):
+        clear()
         logOut(f"Extracting image urls from links ... [{i + 1} / {length}]")
         url = getContentURL(HTMLSession, links[i])
         url = str(url).replace("sample_", "").replace("/samples", "/images") # by default the images are only samples, this gets the hd one
@@ -601,9 +413,7 @@ def downloadThread(links: list, savePath: str, name: str, fileNums: list):
         raise Exception("The amount of links given does equal the amount of file numbers given")
     
     for i in range(0, len(links)):
-        #logOut("Downloading", links[i])
         saveImage(links[i], savePath, name, fileNums[i])
-        #logOut("Downloaded", links[i])
         downLoaded += 1
 
 def getAndSaveImagesFromLinks(links, savePath, name):
@@ -614,8 +424,10 @@ def getAndSaveImagesFromLinks(links, savePath, name):
     separatedLoad = np.array_split(np.array(links), AMT_DOWNLOAD_THREADS) # splits up load "equally" for every thread
     downloadThreads = []
 
+    previousIndex = getStartingIndex(savePath, name) # incase dictory already has saves
+
     logOut("Initalizing download threads")
-    startingIndex = 0 # for thread file numbers
+    startingIndex = 0 + previousIndex # for thread file numbers
     for i in range(0, AMT_DOWNLOAD_THREADS): # initalizing threads
         fileNums = []
         for j in range(0, len(separatedLoad[i])):
@@ -630,11 +442,12 @@ def getAndSaveImagesFromLinks(links, savePath, name):
         thread.start()
 
     before = 0
+    clear()
     while threading.active_count() > 3:
         if downLoaded != before:
             before = downLoaded
-            progress(downLoaded + 1, len(links))
-            #time.sleep(1)
+            clear()
+            progress(downLoaded, len(links))
 
     logOut("Finished downloading")
 
@@ -645,26 +458,24 @@ def main():
     global saved
     global timeElapsed
     
-    logOut("use the settings.json to edit perferences")
-    logOut("press \"alt+q\" to stop")
-    #logOut("choosen screen =", SCREEN)
+    logOut("Use the settings.json to edit perferences")
+    logOut("Press \"alt+q\" to stop")
 
     keyboard.add_hotkey("alt+q", killSwitch)
 
     
-    currentName = input("enter name: ")
+    currentName = input("Enter name: ")
     isValidName(currentName)
-    startingUrl = input("enter starting url: ")
-    amount = getNumFromUser("enter number of pages to scrape:")
+    startingUrl = input("Enter starting url: ")
+    amount = getNumFromUser(f"Enter number of pages to scrape [1 = {IMAGES_PER_PAGE} file]:")
+    clear()
+    logOut("Estimated amount of files:", IMAGES_PER_PAGE * amount)
+    logOut("Estimated download size:", round(IMAGES_PER_PAGE * amount * AVERAGE_FILE_SIZE, 2), "MB")
+    logOut("Estimated time to scrape:", getHrMnScFromSeconds(amount * 26))
 
-    if amount == -1:
-        amount = sys.maxsize * 2 # big number !!!
-    elif amount == 0:
-        raise ValueError("cant scrape 0 pages")
+    input("Press enter to confirm: ")
 
-    saved = getStartingIndex(SAVEPATH, currentName)
-    amount = amount + saved
-    startingIn(2)
+    #startingIn(2)
     timeElapsed = time.time()
     logOut("starting html session")
     session = requests_html.HTMLSession()
@@ -672,41 +483,11 @@ def main():
 
     links = compileLinks(session, startingUrl, amount)
     links = extractImageURLsFromPages(session, links)
-    #logOut(links)
     getAndSaveImagesFromLinks(links, getSaveImagePath(SAVEPATH, currentName), currentName)
 
     logOut("finished")
     logOut(f"time elapsed: {getHrMnScFromSeconds(round(time.time() - timeElapsed))}")
-    createLog(getSaveImagePath(SAVEPATH, currentName), saved, amount, currentName, startingUrl)
-
-
-
-#session = requests_html.HTMLSession()
-# r = session.get(r"https://gelbooru.com/index.php?page=post&s=view&id=8446563&tags=video")
-# videoTag = r.html.find("#gelcomVideoPlayer", first=True) # type: ignore
-# video = videoTag.find("source")
-# logOut(video)
-
-# links = r.html.absolute_links
-
-# l = filterLinks(links)
-# logOut(l)
-# logOut(len(l))
-
-#image = r.html.find("#image", first=True)
-#image.attrs["src"]
-# url = "https://img3.gelbooru.com//samples/a2/93/sample_a2939e1bcfba5185c31cb58fe21dedfd.jpg"
-# print(str(url).replace("sample_", "").replace("/samples", "images"))
-
-#urls = filterLinks(["https://gelbooru.com/index.php?page=post&s=view&id=8444563&tags=video"])
-#logOut(getContentURL(session, urls[0]))
-# url = "https://img3.gelbooru.com//images/9f/b7/9fb7d287d53545c991285c223bcdd8ed.jpg"
-# extension = str(url).split(".")
-# extension = extension[len(extension) - 1]
-# noExURL = url[:-len(extension) - 1]
-# logOut(noExURL)
-# usedURL = noExURL + ".png"
-# logOut(usedURL)
+    createLog(getSaveImagePath(SAVEPATH, currentName), downLoaded, currentName, startingUrl)
 
 logOut("save path =", SAVEPATH)
 logOut("\"alt + q\" to exit at anytime")
