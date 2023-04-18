@@ -1,275 +1,499 @@
-import mouse
+#import mouse
 import keyboard
 import time
-import mss
-import mss.tools
+#import mss
+#import mss.tools
 import numpy as np
 import sys
+# import cv2
+# import pyperclip as clipboard
+import os
+import json
+import requests
+import shutil
+import requests_html
+import threading
 import math
-import cv2
-import pyperclip as clipboard
 
-SCREEN = 1 # 1 OR 2 (assuming 1920x1080 HD)
-global yOffset
-
+"""
+    Written with and for Windows 11, Python 3.10.7
+    Main Program
+    
+"""
 yOffset = 0
+saved = 0
+logText = []
+timeElapsed = 0
+downLoaded = 0
 
-if SCREEN == 1:
-    offset = 0
+if not os.path.exists(os.getcwd() + r"\settings.json"):
+    # defaults dont touch
+    DATA = {
+        "amt_download_threads": 42,
+        "shutdown_on_completion": False,
+        "clear_console": True,
+        "mp4_or_webm": "mp4",
+        "save_path": "default",
+        "average_file_size_mb": 2.28, # MB - from 8243 images/videos at 18756 MB
+        "images_per_row": 8,
+        "images_per_column": 6,
+        "images_per_page": 42,
+        "invalid_path_characters": ["\\", "/", ":", "*", "?", "<", ">", "|"]
+    }
+
+    json.dump(DATA, open("settings.json", "w"), indent=4)
+    
 else:
-    offset = SCREEN * 1920
+    DATA = json.load(open("settings.json", "r"))
 
-MOUSEDELAY = 0.1
-MAX_IMAGE_WIDTH = 175
-MAX_IMAGE_HEIGHT = 175
-IMAGES_PER_ROW = 8
-IMAGES_PER_COLUMN = 6
-SAVEPATH = "C:/Programs/visual_studio_code/Python/gelbooruScaper/saves"
+AMT_DOWNLOAD_THREADS = DATA["amt_download_threads"]
+SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
+CLEAR_CONSOLE = DATA["clear_console"]
+MP4_OR_WEBM = DATA["mp4_or_webm"]
+AVERAGE_FILE_SIZE = DATA["average_file_size_mb"]
+IMAGES_PER_ROW = DATA["images_per_row"]
+IMAGES_PER_COLUMN = DATA["images_per_column"]
+IMAGES_PER_PAGE = DATA["images_per_page"]
+INVALID_PATH_CHARACTERS = DATA["invalid_path_characters"]
 
-imageLocation = {
-    "top": 341,
-    "left": 260 + offset,
-    "width": 1640,
-    "height": 691
-}
+if DATA["save_path"] == "default":
+    SAVEPATH = os.getcwd() + r"\saves"
+else:
+    SAVEPATH = DATA["save_path"]
 
-pageContentLocation = {
-    "top": 272,
-    "left": 240 + offset,
-    "width": 1661,
-    "height": 753
-}
+
+def shutdown():
+    os.system("shutdown /s /t 1")
 
 def killSwitch():
-    sys.exit("Stopped by user or Finished")
-      
-def click(type = "left"):
-    print("clicked")
-    if type == "left":
-        mouse.click(type)
-    elif type == "right":
-        mouse.click(type)
-    else:
-        raise ValueError(f"{type} is not a valid click")
+    if SHUTDOWN_ON_COMPLETION:
+        shutdown()
+    os._exit(0)
 
-def moveMouse(x, y, time = 0):
-    mouse.move(x, y, True, time)
+def logOut(*text):
+    global logText
+    ctime = getTimeFormatted()
+    newText = ""
 
-def pressKey(key):
-    try:
-        keyboard.send(key)
-    except:
-        raise ValueError(f"{key} is not a valid key")
+    for i in range(0, len(text)):
+        if i == 0:
+            newText = str(text[i])
+        else:
+            newText = newText + " " + str(text[i])
+
+    newText = f"[{ctime}]: {newText}"
+
+    print(newText)
+    logText.append(newText)
+
+def getTimeFormatted():
+    return time.strftime("%H:%M:%S")
+
+def getHrMnScFromSeconds(secs):
+    # translated and adapted from java
+    hours = 0
+    mins = 0
+    hour = "Hours"
+    min = "Minutes"
+    sec = "Seconds"
+    # time = ""
+    # flag = False
+    while secs > 59:
+        secs = secs - 60
+        mins += 1
+    while mins > 59:
+        mins = mins - 60
+        hours += 1
+    if hours == 1:
+        hour = "Hour"
+    if mins == 1:
+        min = "Minute"
+    if secs == 1:
+        sec = "Second"
     
-def saveImage(savePath, nSaved, name, first = False):
-    if first:
-        moveMouse(620 + offset, 55, MOUSEDELAY) # path bar
-        click()
-        keyboard.write(savePath)
-        pressKey("enter")
+    return f"{hours} {hour} {mins} {min} {secs} {sec}"
 
-        moveMouse(360 + offset, 440, MOUSEDELAY) # file name bar
-        click()
-        keyboard.write(f"{name} - {nSaved}")
-
-        moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-        click()
-    else:
-        keyboard.write(f"{name} - {nSaved}")
-        moveMouse(780 + offset, 506, MOUSEDELAY) # save button
-        click()
-
-def openSaveMenu():
-    click("right")
-    time.sleep(0.1)
-    pressKey("v")
-    time.sleep(0.25)
-
-def goIntoPic():
-    ss = mss.mss()
-    pre = np.array(ss.grab(imageLocation))
-    preSum = pre.sum()
-
-    click()
-    moveMouse(262 + offset, 343, MOUSEDELAY) # ready to save
-    time.sleep(0.4)
-
-    while True:
-        ss = mss.mss()
-        area = np.array(ss.grab(imageLocation))
-        sum = area.sum()
-        if sum != 394367520 and sum != preSum: # the number is equal to the sum of defualt background, when the image loads it changes
-            print("image loaded")
-            break
+def clear():
+    if CLEAR_CONSOLE:
+        os.system("cls")
     
-    
+def isValidName(name):
+    if(not(name and name.strip())):
+        raise ValueError("Name can't be empty")
 
-def checkIfPic(y, i):
-    location = {
-    "top": pictureY(y),
-    "left": pictureX(i),
-    "width": 1,
-    "height": 3
-    }
+    for char in name:
+        if char in INVALID_PATH_CHARACTERS:
+            raise ValueError("Invalid name")
     
-    timeout = 0
-    while True:
-        if timeout == 500:
-            raise TimeoutError("timed out or reached end")
-        ss = mss.mss()
-        area = np.array(ss.grab(location))
-        if area.sum() != 1044:
-            break
+    return True
+    
+def getSaveImagePath(path, name):
+    newName = name.replace(" ", "-")
+    newName = newName.replace("_", "-")
+
+    fullPath = path + "\\" + newName
+
+    if not os.path.exists(fullPath):
+        os.mkdir(fullPath)
+
+    return fullPath
+
+
+def saveImage(url, savePath, name, nSaved):
+    #if (str(url).find(".jpg") != -1) or (str(url).find(".jpeg") != -1):
+
+    # sample images are always .jpg and when converting the sample image url to the full image url,
+    # theres a chance that url doesnt exist. Most commonly because that the full image is a .png
+    request = requests.get(url, stream = True)
+    usedURL = url
+
+    if request.status_code != 200:
+        extension = str(url).split(".")
+        extension = extension[len(extension) - 1]
+        noExURL = url[:-len(extension) - 1]
+        usedURL = noExURL + ".png"
         
-        timeout = timeout + 1
-        time.sleep(0.01)
+        request = requests.get(noExURL + ".png", stream = True)
+        if request.status_code != 200:
+            request = requests.get(noExURL + ".jpeg", stream = True)
+            usedURL = noExURL + ".jpeg"
+            
+            if request.status_code != 200:
+                logOut(f"{usedURL} is an invalid url/image/video")
+                return
+        
+    extension = usedURL.split(".")
+    extension = extension[len(extension) - 1]
+    shutil.copyfileobj(request.raw, open(f"{savePath}\\{name} - {nSaved}.{extension}", "wb"))
 
-def addMinusVideoTag():
-    print("adding \"-video\" tag...")
-    moveMouse(210 + offset, 240, MOUSEDELAY) # tag bar
-    click()
-    pressKey("end")
-    pressKey("space")
-    keyboard.write("-video")
-    pressKey("enter")
-    print("complete")
-    time.sleep(3)
-    print("starting...")
+def getContentURL(HTMLSession: requests_html.HTMLSession, url):
+    r = HTMLSession.get(url)
+    try:
+        image = r.html.find("#image", first=True) # type: ignore
+        return image.attrs["src"]
+    except:
+        videoTag = r.html.find("#gelcomVideoPlayer", first=True) # type: ignore
+        videoSources = videoTag.find("source")
+        if MP4_OR_WEBM == "mp4":
+            return videoSources[0].attrs["src"]
+        elif MP4_OR_WEBM == "webm":
+            return videoSources[1].attrs["src"]
+        else:
+            raise ValueError(f"\"{MP4_OR_WEBM}\" is not either \"mp4\" or \"webm\"")
 
-def getNumFromUser(message):
+def getAmtPagesFromUser(*message):
     while True:
         try:
-            x = int(input(message))
+            for text in message:
+                logOut(text)
+            x = input()
+
+            if x[:1] == "p":
+                pages = int(x[1:]) * IMAGES_PER_PAGE
+                return pages
+
+            x = int(x)
             return x
         except:
-            print("invalid number")
+            logOut("invalid input")
 
-def nextPage(page):
-    newUrl = ""
-    moveMouse(800 + offset, 65, MOUSEDELAY) # url bar
-    click()
-    pressKey("ctrl+c")
-    time.sleep(0.1)
-    url = clipboard.paste() # gets url
+def getNumFromUser(*message):
+    while True:
+        try:
+            for text in message:
+                logOut(text)
+            x = input()
 
-    #url2 = r"https://gelbooru.com/index.php?page=post&s=list&tags=shiroko_%28blue_archive%29"
-    #url = r"https://gelbooru.com/index.php?page=post&s=list&tags=muoto&pid=42"
+            x = int(x)
+            return x
+        except:
+            logOut("invalid number")
 
-    url = url.split("&")
-    print(url)
-    url.pop() # removes the page id
-    print(url)
+def progress(nSaved, maxSaved):
+    if nSaved > maxSaved:
+        nSaved = maxSaved
+    s = "DOWNLOAD PROGRESS"
+    e = ""
+    exit = "\"alt + q\" to exit at anytime"
+    logOut(f"{s:=^100}")
+    fraction = f"{nSaved} / {maxSaved}"
+    precent = f"{math.floor((nSaved / maxSaved) * 100)}%"
+    savepath = f"Save path: {SAVEPATH}"
+    shutDown = "SHUTDOWN ON COMPLETION IS ENABLED"
+    logOut(f"{fraction: ^100}")
+    logOut(f"{precent: ^100}")
+    logOut(f"{savepath: ^100}")
+    if SHUTDOWN_ON_COMPLETION:
+        logOut(f"{shutDown: ^100}")
+    logOut(f"{exit: ^100}")
+    logOut(f"{e:=^100}")
+    
+def startingIn(sec):
+    for i in range(sec, 0, -1):
+        logOut(f"Starting in {i}")
+        time.sleep(1)
 
-    for segs in url:
-        if segs == "s=view":
-            newUrl = newUrl + "&" + "s=list"
+def getStartingIndex(path, name):
+    startingIndex = 0
+    #possible extensions:
+    #.gif
+    #.jpg
+    #.jpeg
+    #.png
+    #.webm
+    # newName = name.replace(" ", "-")
+    # newName = newName.replace("_", "-")
+
+    # fullPath = path + "\\" + newName
+
+    # if not os.path.exists(fullPath):
+    #     os.mkdir(fullPath)
+
+    files = os.listdir(path)
+    for file in files:
+        if file[-4:] == ".gif" or file[-4:] == ".jpg" or file[-4:] == ".png":# or file[-5:] == ".jpeg" or file[-5:] == ".webm":
+            fileSplit = str(file).split(name + " - ")[1] # removes the name and stuff
+            fileSplit = fileSplit[:-4]
+            try:
+                fileSplit = int(fileSplit)
+            except:
+                logOut("file reading broke!")
+                continue
+            
+            if fileSplit > startingIndex:
+                startingIndex = fileSplit
+
+    if startingIndex != 0:
+        startingIndex = startingIndex + 1 # adding 1 to avoid overriding first image
+    return startingIndex
+
+# returns the links that lead to images/videos
+def filterLinks(links):
+    filteredLinks = []
+    for link in links:      
+        if (str(link).find("s=view") != -1) and (str(link).find("page=post") != -1):
+            filteredLinks.append(link)
+
+    return filteredLinks
+
+def getFolderContentSizeFormatted(path):
+    files = os.listdir(path)
+    noLogFiles = []
+    byteToMBRatio = (1 / 1024) / 1024 # byte -> kilobyte -> megabyte
+    MBtoGBRatio = 1024
+    useGiga = False
+
+    for file in files:
+        if file.find(".log") == -1:
+            noLogFiles.append(f"{path}\\{file}")
+
+    if len(noLogFiles) > downLoaded:
+        noLogFiles = noLogFiles[-downLoaded:]
+    
+    totalByteSize = 0
+    totalAmt = 0
+
+    for file in noLogFiles:
+        totalByteSize += os.path.getsize(file)
+        totalAmt += 1
+    
+    size = totalByteSize * byteToMBRatio # bytes to megabytes
+
+    if size > MBtoGBRatio:
+        size = size / MBtoGBRatio # megabyte to gigabyte
+        useGiga = True
+
+    text = ""
+    if useGiga:
+        text = f"{round(size, 2)} GB"
+    else:
+        text = f"{round(size, 2)} MB"
+    return text
+
+def createLog(logPath, nSaved, name, startingURL):
+    logFile = f"{logPath}\\{name}.log"
+
+    i = 1
+    while os.path.exists(logFile):
+        logFile = f"{logPath}\\{name}{i}.log"
+        i += 1
+
+    fb = open(logFile, "w")
+    fb.write(f"savepath: {logPath}\r")
+    fb.write(f"pages downloaded: {round(nSaved / 42, 2)}\r")
+    fb.write(f"files downloaded: {nSaved}\r")
+    fb.write(f"size of download: {getFolderContentSizeFormatted(logPath)}\r")
+    fb.write(f"starting page: {startingURL}\r\r")
+
+    for text in logText:
+        fb.write(str(text) + "\r")
+    fb.close()
+    print("created log")
+
+def readLog(logPath): # pretty much useless
+    try:
+        files = os.listdir(logPath)
+    except:
+        raise Exception("invalid path")
+    data = []
+    path = ""
+    for file in files:
+        if str(file).split(".")[len(str(file).split(".")) - 1] == "log":
+            path = file
+            break
+    
+    if path == "":
+        return
+    
+    fb = open(logPath + "\\" + path, "r")
+    lines = fb.readlines()
+    fb.close()
+    filterdLines = []
+    for line in lines:
+        filterdLines.append(line.replace("\n", ""))
+
+    for i in range(0, 4):
+        if i == 3:
+            try:
+                if filterdLines[i] == "finished":
+                    data.append(True)
+                else:
+                    data.append(False)
+            except:
+                data.append(False)
+            break
+        if i != 1:
+            data.append(str(filterdLines[i]).split(": ")[1])
         else:
-            newUrl = newUrl + "&" + segs
+            text = str(filterdLines[i]).split(": ")[1].split(" / ")
+            data.append(text[0]) # current progress
+            data.append(text[1]) # max progress
 
-    newUrl = newUrl[1:]
-    print(newUrl)
-    newUrl = newUrl + f"&pid={page * 42}"
+    return data # savepath, current progress, max progress, last page url, isFinished
 
-    clipboard.copy(newUrl)
+def addIndexToUrl(url: str, page):
+    result = url.find("&pid=")
+    if result == -1:
+        return f"{url}&pid={IMAGES_PER_PAGE * page}"
+    else:
+        id = int(url[result + 5:])
+        newUrl = url[:result]
+        return f"{newUrl}&pid={id + IMAGES_PER_PAGE * page}"
+
+def compileLinks(HTMLSession: requests_html.HTMLSession, startingUrl, nPages):
+    result = []
+    for i in range(0, nPages):
+        clear()
+        logOut(f"Compiling images on pages ... [{i + 1} / {nPages}]")
+        r = HTMLSession.get(addIndexToUrl(startingUrl, i))
+        links = r.html.absolute_links # type: ignore
+        links = filterLinks(links) # gets rid of junk links
+        result.extend(links)
+
+    logOut(f"Got {len(result)} image/video links")
+    return result
+
+def extractImageURLsFromPages(HTMLSession: requests_html.HTMLSession, links):
+    imageURLs = []
+    length = len(links)
+    for i in range(0, length):
+        clear()
+        logOut(f"Extracting image urls from links ... [{i + 1} / {length}]")
+        url = getContentURL(HTMLSession, links[i])
+        url = str(url).replace("sample_", "").replace("/samples", "/images") # by default the images are only samples, this gets the hd one
+        imageURLs.append(url)
+
+    return imageURLs
+
+# 
+def downloadThread(links: list, savePath: str, name: str, fileNums: list):
+    global downLoaded
+
+    if len(links) != len(fileNums):
+        raise Exception("The amount of links given does equal the amount of file numbers given")
     
-    #keyboard.write(f"&pid={page * 42}")
-    pressKey("ctrl+v")
-    time.sleep(0.1)
-    pressKey("enter")
-    time.sleep(2)
-    print("now on page", page + 1)
-    
-def pictureX(rowStage):
-    return (337 + rowStage * 195) + offset
+    for i in range(0, len(links)):
+        saveImage(links[i], savePath, name, fileNums[i])
+        downLoaded += 1
 
-def pictureY(columnStage):
-    return (384 + (columnStage % 3) * 206) - yOffset
+def getAndSaveImagesFromLinks(links, savePath, name):
+    # for i in range(0, len(links)): # TODO add threading to this to make it faster
+    #     saveImage(links[i], savePath, name, i)
+
+    logOut("Spliting load over multiple threads")
+    separatedLoad = np.array_split(np.array(links), AMT_DOWNLOAD_THREADS) # splits up load "equally" for every thread
+    downloadThreads = []
+
+    previousIndex = getStartingIndex(savePath, name) # incase dictory already has saves
+
+    logOut("Initalizing download threads")
+    startingIndex = 0 + previousIndex # for thread file numbers
+    for i in range(0, AMT_DOWNLOAD_THREADS): # initalizing threads
+        fileNums = []
+        for j in range(0, len(separatedLoad[i])):
+            fileNums.append(startingIndex)
+            startingIndex += 1
+
+        thread = threading.Thread(target=downloadThread, args=(separatedLoad[i], savePath, name, fileNums,))
+        downloadThreads.append(thread)
+
+    logOut("Starting download threads")
+    for thread in downloadThreads:
+        thread.start()
+
+    before = 0
+    clear()
+    while threading.active_count() > 3:
+        if downLoaded != before:
+            before = downLoaded
+            clear()
+            progress(downLoaded, len(links))
+
+    logOut("Finished downloading")
+
+
 
 def main():
     global yOffset
-
-    preSnip = cv2.cvtColor(cv2.imread("C:/Programs/visual_studio_code/Python/gelbooruScaper/blank.jpg"), cv2.COLOR_BGR2GRAY)
+    global saved
+    global timeElapsed
     
-
-    print("MAKE SURE URL DOESNT HAVE &pid=[x] IN IT")
-    print("press \"alt+q\" to stop")
-    print("choosen screen =", SCREEN)
+    logOut("Use the settings.json to edit perferences")
+    logOut("Press \"alt+q\" to stop")
 
     keyboard.add_hotkey("alt+q", killSwitch)
 
-    saved = 0
-    currentName = input("enter name: ")
-    amount = getNumFromUser("enter amount of images to scrape (-1 = infinite): ")
-
-    if amount >= 0:
-        pages = math.ceil(amount / (IMAGES_PER_ROW * IMAGES_PER_COLUMN))
-    else:
-        pages = sys.maxsize * 2 + 1 # big number !!!
-
-    moveMouse(1920 / 2, 1080 / 2, MOUSEDELAY)
-    mouse.wheel(800)
-    addMinusVideoTag()
     
+    currentName = input("Enter name: ")
+    isValidName(currentName)
+    startingUrl = input("Enter starting url: ")
+    amount = getNumFromUser(f"Enter number of pages to scrape [1 = {IMAGES_PER_PAGE} file]:")
+    clear()
+    logOut("Estimated amount of files:", IMAGES_PER_PAGE * amount)
+    logOut("Estimated download size:", round(IMAGES_PER_PAGE * amount * AVERAGE_FILE_SIZE, 2), "MB")
+    logOut("Estimated time to scrape:", getHrMnScFromSeconds(amount * 26))
 
-    if pages == 0:
-        raise Exception("cant scrape 0 pages")
+    input("Press enter to confirm: ")
 
-    for page in range(0, pages):
-        yOffset = 0
-        for y in range(0, IMAGES_PER_COLUMN):
-            if y == 3:
-                time.sleep(1)
-                mouse.wheel(-200)
-                yOffset = 64 # the tag bar isn't there on the bottom part of the page.
-                time.sleep(1)
+    #startingIn(2)
+    timeElapsed = time.time()
+    logOut("starting html session")
+    session = requests_html.HTMLSession()
+    logOut("created")
 
-            for x in range(0, IMAGES_PER_ROW):
+    links = compileLinks(session, startingUrl, amount)
+    links = extractImageURLsFromPages(session, links)
+    getAndSaveImagesFromLinks(links, getSaveImagePath(SAVEPATH, currentName), currentName)
 
-                if y == 5 and x == 2:
-                    break # last picture normally
+    logOut("finished")
+    logOut(f"time elapsed: {getHrMnScFromSeconds(round(time.time() - timeElapsed))}")
+    createLog(getSaveImagePath(SAVEPATH, currentName), downLoaded, currentName, startingUrl)
 
-                if saved >= amount:
-                    killSwitch()
-
-                # seeing if page has changed/loaded
-                while True:
-                    ss = mss.mss()
-                    ss = np.array(ss.grab(pageContentLocation))
-                    
-                    ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                    cv2.waitKey()
-
-                    result = cv2.matchTemplate(ss, preSnip, cv2.TM_CCORR_NORMED)
-                    _, max, _, _ = cv2.minMaxLoc(result)
-                    print("max:", max)
-
-                    if max < 0.90:
-                        cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/loadedSnip-{y}{x}.jpg", ss)
-                        print("page loaded")
-                        break
-
-                moveMouse(pictureX(x), pictureY(y), MOUSEDELAY) # hover on the pic
-                print(f"current location x:{pictureX(x)} y:{pictureY(y)}")
-                
-                checkIfPic(y, x)
-
-                goIntoPic()
-
-                openSaveMenu()
-
-                if y == 0 and x == 0:
-                    saveImage(SAVEPATH, saved, currentName, True)
-                saveImage(SAVEPATH, saved, currentName)
-                saved = saved + 1
-                
-                time.sleep(0.5) # allows for the save window to close in time
-                # used for checking if page as changed
-                ss = mss.mss()
-                ss = np.array(ss.grab(pageContentLocation))
-                preSnip = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
-                cv2.imwrite(f"C:/Programs/visual_studio_code/Python/gelbooruScaper/debug_out/preSnip-{y}{x}.jpg", ss)
-                pressKey("alt+left_arrow")
-
-                
-        nextPage(page + 1) # TODO FIX
+logOut("save path =", SAVEPATH)
+logOut("\"alt + q\" to exit at anytime")
 main()
+
+if SHUTDOWN_ON_COMPLETION:
+    shutdown()
+print("Press enter to close...")
+input()
