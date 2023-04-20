@@ -1,4 +1,4 @@
-# gelbooruScaper
+# gelbooruScraper
 Simple mass image/videoall downloader for gelbooru.
 
 ## Keep in mind this is against Gelbooru's TOS!
