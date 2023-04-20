@@ -1,10 +1,10 @@
-import os
-import json
-
 """
     Written with and for Windows 11, Python 3.10.7
     Used for calibrating download size estimate in scraper
 """
+
+import os
+import json
 
 if input("calibrate average size? [y/n]: ").lower() != "y":
     os._exit(0)

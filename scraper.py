@@ -1,25 +1,48 @@
-#import mouse
-import keyboard
-import time
-#import mss
-#import mss.tools
-import numpy as np
-import sys
-# import cv2
-# import pyperclip as clipboard
-import os
-import json
-import requests
-import shutil
-import requests_html
-import threading
-import math
-
 """
     Written with and for Windows 11, Python 3.10.7
     Main Program
     
 """
+
+# defaults
+import os
+import time
+import json
+import shutil
+import threading
+import math
+
+import pip
+
+def install(package):
+    if hasattr(pip, 'main'):
+        pip.main(['install', package])
+
+try:
+    import numpy as np
+    import keyboard
+    import requests
+    import requests_html
+except:
+    print("You seem to be missing 1 or more python modules.")
+    print("Would you like to download them? [y/n]")
+    
+    if input().lower() != "y":
+        print("stopping")
+        os._exit(0)
+
+    install("numpy")
+    install("requests")
+    install("requests_html")
+    install("keyboard")
+
+    import numpy as np
+    import requests
+    import requests_html
+    import keyboard
+
+    os.system("cls")
+
 yOffset = 0
 saved = 0
 logText = []
@@ -44,7 +67,16 @@ if not os.path.exists(os.getcwd() + r"\settings.json"):
     json.dump(DATA, open("settings.json", "w"), indent=4)
     
 else:
-    DATA = json.load(open("settings.json", "r"))
+    try:
+        DATA = json.load(open("settings.json", "r"))
+    except:
+        print("Invalid settings.json file")
+        print("If save_path is changed from \"default\", check that the path uses double backslashes (\\\\) or forward slashes (/)")
+        print("If that fails check settings.json formatting or delete the file and rerun")
+        print("")
+        input("Press enter to close ...")
+        os._exit(0)
+        
 
 AMT_DOWNLOAD_THREADS = DATA["amt_download_threads"]
 SHUTDOWN_ON_COMPLETION = DATA["shutdown_on_completion"]
@@ -70,6 +102,7 @@ def killSwitch():
         shutdown()
     os._exit(0)
 
+
 def logOut(*text):
     global logText
     ctime = getTimeFormatted()
@@ -84,6 +117,22 @@ def logOut(*text):
     newText = f"[{ctime}]: {newText}"
 
     print(newText)
+    logText.append(newText)
+
+# same as logOut() except it doesnt print to console
+def log(*text):
+    global logText
+    ctime = getTimeFormatted()
+    newText = ""
+
+    for i in range(0, len(text)):
+        if i == 0:
+            newText = str(text[i])
+        else:
+            newText = newText + " " + str(text[i])
+
+    newText = f"[{ctime}]: {newText}"
+
     logText.append(newText)
 
 def getTimeFormatted():
@@ -134,7 +183,7 @@ def getSaveImagePath(path, name):
     fullPath = path + "\\" + newName
 
     if not os.path.exists(fullPath):
-        os.mkdir(fullPath)
+        os.makedirs(fullPath)
 
     return fullPath
 
@@ -165,7 +214,9 @@ def saveImage(url, savePath, name, nSaved):
     extension = usedURL.split(".")
     extension = extension[len(extension) - 1]
     shutil.copyfileobj(request.raw, open(f"{savePath}\\{name} - {nSaved}.{extension}", "wb"))
+    log("saved image from", usedURL)
 
+# gets the main image or video from the page
 def getContentURL(HTMLSession: requests_html.HTMLSession, url):
     r = HTMLSession.get(url)
     try:
@@ -388,6 +439,7 @@ def compileLinks(HTMLSession: requests_html.HTMLSession, startingUrl, nPages):
         r = HTMLSession.get(addIndexToUrl(startingUrl, i))
         links = r.html.absolute_links # type: ignore
         links = filterLinks(links) # gets rid of junk links
+        log("got links: ", links)
         result.extend(links)
 
     logOut(f"Got {len(result)} image/video links")
@@ -400,7 +452,10 @@ def extractImageURLsFromPages(HTMLSession: requests_html.HTMLSession, links):
         clear()
         logOut(f"Extracting image urls from links ... [{i + 1} / {length}]")
         url = getContentURL(HTMLSession, links[i])
-        url = str(url).replace("sample_", "").replace("/samples", "/images") # by default the images are only samples, this gets the hd one
+        # by default the images are only samples, this gets the hd one 
+        # could get round this by using session stuff but too hard
+        url = str(url).replace("sample_", "").replace("/samples", "/images")
+        log("got image/video url:", url)
         imageURLs.append(url)
 
     return imageURLs
@@ -408,6 +463,7 @@ def extractImageURLsFromPages(HTMLSession: requests_html.HTMLSession, links):
 # 
 def downloadThread(links: list, savePath: str, name: str, fileNums: list):
     global downLoaded
+    log("created download thread")
 
     if len(links) != len(fileNums):
         raise Exception("The amount of links given does equal the amount of file numbers given")
@@ -415,6 +471,8 @@ def downloadThread(links: list, savePath: str, name: str, fileNums: list):
     for i in range(0, len(links)):
         saveImage(links[i], savePath, name, fileNums[i])
         downLoaded += 1
+
+    log("download thread finished")
 
 def getAndSaveImagesFromLinks(links, savePath, name):
     # for i in range(0, len(links)): # TODO add threading to this to make it faster
@@ -467,7 +525,7 @@ def main():
     currentName = input("Enter name: ")
     isValidName(currentName)
     startingUrl = input("Enter starting url: ")
-    amount = getNumFromUser(f"Enter number of pages to scrape [1 = {IMAGES_PER_PAGE} file]:")
+    amount = round(getNumFromUser(f"Enter number of pages to scrape [1 = {IMAGES_PER_PAGE} file]:"))
     clear()
     logOut("Estimated amount of files:", IMAGES_PER_PAGE * amount)
     logOut("Estimated download size:", round(IMAGES_PER_PAGE * amount * AVERAGE_FILE_SIZE, 2), "MB")
