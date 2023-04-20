@@ -17,6 +17,6 @@ Upon running ``scraper.py`` settings.json will be created in the same directory.
  - ``shutdown_on_completion`` whether the computer shuts down when finished scraping.
  - ``clear_console`` only works on windows
  - ``mp4_or_webm`` options for downloading videos, choose one.
- - ``save_path`` **default** is ``current-directory/saves/``, when changing this value make sure the path has **double "\\"** or / e.g. ``C:/Users/saves`` or ``C:/Users/saves``
+ - ``save_path`` **default** is ``current-directory/saves/``, when changing this value make sure the path has **double "\\"** or **"/"** e.g. ``C:/Users/saves`` or ``C:/Users/saves``
  - ``average_file_size_mb`` can be calibrated by using ``averageFileSizeCalculator.py`` but is only used for estimates.
  - ``invalid_path_characters`` is for name validation and be added to but isn't very important.
